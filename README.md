@@ -5,7 +5,7 @@ The MIDAS (Modular Integrated Distributed Analysis System) is a system
 for online analysis of streaming signals and allows easy integration
 of such into machine learning frameworks.
 
-
+For more information (background, installation, usage, ...) refer to the [MIDAS wiki](https://github.com/bwrc/midas/wiki).
 
 License information
 -------------------
