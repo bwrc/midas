@@ -4,5 +4,5 @@ include midas/liblsl64.dll
 include midas/liblsl64.dylib
 include midas/liblsl64.so
 include LICENSE
-include README
+include README.md
 include requirements.txt
