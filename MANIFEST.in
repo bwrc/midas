@@ -1,0 +1,8 @@
+include midas/liblsl32.dll
+include midas/liblsl32.dylib
+include midas/liblsl64.dll
+include midas/liblsl64.dylib
+include midas/liblsl64.so
+include LICENSE
+include README
+include requirements.txt

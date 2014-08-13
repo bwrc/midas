@@ -1,0 +1,4 @@
+bottle>=0.12
+PyZMQ>=14.3.1
+Waitress>=0.8.9
+https://github.com/zeromq/pyre/archive/master.zip
