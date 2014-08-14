@@ -1,5 +1,15 @@
 #!/usr/bin/env python3
 
+# This file is part of the MIDAS system.
+# Copyright 2014
+# Andreas Henelius <andreas.henelius@ttl.fi>, Jari Torniainen <jari.torniainen@ttl.fi>
+# Finnish Institute of Occupational Health
+#
+# This code is released under the MIT License
+# http://opensource.org/licenses/mit-license.php
+#
+# Please see the file LICENSE for details.
+
 import zmq
 import time
 import ipaddress
@@ -541,7 +551,7 @@ def LRU_queue_broker(url_frontend, url_backend, NBR_WORKERS, run_state):
         NBR_workers: the number of workers (worker processes / threads)
         run_state: <integer> boolean "poison pill" to signal termination to the process
 
-    This code is slightly modified from http://zguide.zeromq.org/py:lruqueue originally
+    This function is slightly modified from http://zguide.zeromq.org/py:lruqueue originally
     written by Guillaume Aubert (gaubert) <guillaume(dot)aubert(at)gmail(dot)com>.
 
     Original code licensed under the MIT/X11.

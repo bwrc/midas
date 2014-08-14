@@ -5,6 +5,24 @@ import platform
 import struct
 global lib
 
+# This code constitutes the Python bindings for the Lab Streaming Layer (LSL).
+# The code is a modified version of original source code obtained from
+# ftp://sccn.ucsd.edu/pub/software/LSL/SDK/liblsl-Python-1.10.2.zip
+# which is distributed under the MIT license
+# http://opensource.org/licenses/mit-license.php
+#
+# Please refer to
+# https://code.google.com/p/labstreaminglayer/
+# for information on the LSL.
+#
+# The original code was modified to make it compatible with Python 3.
+#
+# The binary files
+# liblsl32.dll, liblsl64.dll, liblsl32.dylib, liblsl64.dylib and liblsl64.so
+# are part of the LSL and unmodified from the original LSL distribution linked
+# to above.
+
+
 """
 Python API for the lab streaming layer.
  

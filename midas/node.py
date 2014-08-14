@@ -1,5 +1,15 @@
 #!/usr/bin/env python3
 
+# This file is part of the MIDAS system.
+# Copyright 2014
+# Andreas Henelius <andreas.henelius@ttl.fi>, Jari Torniainen <jari.torniainen@ttl.fi>
+# Finnish Institute of Occupational Health
+#
+# This code is released under the MIT License
+# http://opensource.org/licenses/mit-license.php
+#
+# Please see the file LICENSE for details.
+
 import random
 import zmq
 import multiprocessing as mp
