@@ -24,6 +24,7 @@ class BaseNode(object):
     def __init__(self,
                  config                         = None,
                  nodename                       = "basenode",
+                 nodetype                       = '',
                  nodeid                         = "00",
                  nodedesc                       = "base node",
                  primary_node                   = True,
@@ -56,6 +57,9 @@ class BaseNode(object):
             # general node properties
             if 'nodename' in config:
                 nodename = config['nodename']
+
+            if 'nodetype' in config:
+                nodetype = config['nodetype']
 
             if 'nodeid' in config:
                 nodeid = config['nodeid']
@@ -122,6 +126,7 @@ class BaseNode(object):
 
         # general node properties
         self.nodename       = nodename
+        self.nodetype       = nodetype
         self.nodeid         = nodeid
         self.nodedesc       = nodedesc
         self.primary_node   = primary_node
@@ -298,6 +303,7 @@ class BaseNode(object):
         while self.run_state.value:
             if not self.message_queue.empty():
                 socket.send_string("%s;%s" % (self.nodename, self.message_queue.get()))
+            time.sleep(0.0001)
 
 
     # ------------------------------------------------------------------------------
@@ -393,7 +399,7 @@ class BaseNode(object):
             time_array_copy[i] = self.time_array_secondary[i][:]
 
         wp_copy           = self.writepointer_secondary[:]
-        bf_copy           = self.writepointer_secondary[:]
+        bf_copy           = self.buffer_full_secondary[:]
 
         self.lock_secondary.release()
 
@@ -406,9 +412,8 @@ class BaseNode(object):
             time_array_copy[i] = [abs(j - time_array_copy[i][-1]) for j in time_array_copy[i]]
 
             # find start index of data
-            timewindow[1]           = timewindow[0] - timewindow[1]
+            # timewindow[1] = timewindow[0] - timewindow[1]
             index_start, index_stop = mu.find_range(time_array_copy[i], timewindow)
-            
             time_array_copy[i]      = time_array_copy[i][index_start:index_stop]
 
             # unwrap the data
@@ -489,13 +494,11 @@ class BaseNode(object):
                     channel_name = channel_name.split(',')
 
                 # get the data for the selected channel(s)
+
                 if channel_name in self.channel_names:
                     data = mu.get_channeL_data(channel_data_copy, self.channel_names, channel_name)
                 elif channel_name in self.channel_names_secondary:
                     data = mu.get_channeL_data(channel_data_copy_secondary, self.channel_names_secondary, channel_name)
-                    # print(data)
-                    # print(channel_data_copy_secondary)
-                    
                 else:
                     results[key] = 'channel not found'
                     break
@@ -565,8 +568,8 @@ class BaseNode(object):
         self.run_state.value = 1
 
         # Create and configure beacon
-        self.beacon = mu.Beacon(service = self.nodename, id = self.nodeid, description = self.nodedesc)
-        self.beacon.set_port(self.port_frontend)
+        self.beacon = mu.Beacon(name = self.nodename, type = self.nodetype, id = self.nodeid, interval = 2)
+        self.beacon.port = self.port_frontend
       
         # Start the load-balancing broker
         self.proc_broker = mp.Process(target = mu.LRU_queue_broker, args = (self.url_frontend, self.url_backend, self.n_workers, self.run_state))
@@ -598,7 +601,7 @@ class BaseNode(object):
 
         # Set the beacon online
         self.beacon.set_status('online')
-        self.beacon.publish()
+        self.beacon.start()
 
         time.sleep(5)
         print("Node '%s' now online." % self.nodename)
@@ -635,7 +638,7 @@ class BaseNode(object):
                 self.proc_publisher.join()
 
             # Stop the beacon
-            del(self.beacon)
+            self.beacon.stop()
 
         else:
             print("Node '%s' is not running." % self.nodename)

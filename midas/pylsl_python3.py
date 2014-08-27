@@ -939,10 +939,10 @@ class InternalError(Exception):
     pass
             
 def handle_error(errcode):
+    """Error handler function. Translates an error code into an exception."""
+
     if type(errcode) is c_int:
         errcode = errcode.value
-
-    """Error handler function. Translates an error code into an exception."""
     if errcode == 0:
         pass # no error
     elif errcode == -1:

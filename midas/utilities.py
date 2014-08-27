@@ -18,191 +18,194 @@ import configparser
 import os.path
 import sys
 import json
-from pyre import zbeacon, zhelper
 from multiprocessing import Process, Manager, Value, Array, RawArray, Lock
+import threading
+import select
 
 from . import pylsl_python3 as lsl
 
-# -------------------------------------------------------------------------------
-# Beacons - used for service discovery
-# -------------------------------------------------------------------------------
-
+# ====================================================================================================
 class Beacon(object):
-    """ A zbeacon with some functions allowing easy use. """
+    """ A UDP broadcast beacon with some functions allowing easy use. """
 
     def __init__(self, 
-                 service = '', 
-                 port = '', 
-                 id = '', 
-                 status_online = '', 
-                 status_description = '', 
-                 ip = None, description = '', 
-                 protocol = 'tcp', 
-                 port_broadcast = 5670):
+                 name               = '', 
+                 type               = '',
+                 id                 = '', 
+                 ip                 = None,
+                 port               = '', 
+                 protocol           = 'tcp', 
+                 # description        = '', 
+                 status             = '', 
+                 # status_description = '', 
+                 port_broadcast     = 5670,
+                 interval           = 5):
+
         """ Create the beacon and set some properties, but do not start it. """
 
-        self.service = service
-        self.id = id
-        self.status_online = status_online
-        self.status_description = status_description
-        self.port = port
-        self.description = description
-        self.protocol = protocol
-        self.ip = ip
-        self.ctx = zmq.Context()
-        self.zb = zbeacon.ZBeacon(self.ctx, port_broadcast)
-        self.zb.set_noecho()
-        self.is_visible = False
+        self.name               = name
+        self.type               = type
+        self.id                 = id
+        self.ip                 = ip
+        self.port               = port
+        self.protocol           = protocol
+        # self.description        = description
+        self.status             = status
+        # self.status_description = status_description
+        self.is_running         = False
+        self.data               = ''
+        self.port_broadcast     = port_broadcast
+        self.interval           = interval
 
-    def set_status(self, status_online, status_description = ''):
+    # -------------------------------------------------------------------------------
+
+    def start(self):
+        """ Start broadcasting data on the beacon, i.e., make it visible. """
+        if self.ip is None:
+            self.ip = get_ip()
+
+        self.update_data()
+
+        self.is_running = True
+        t = threading.Thread(target = self.broadcast)
+        t.start()
+
+    # -------------------------------------------------------------------------------
+
+    def broadcast(self):
+        s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        s.bind(('', 0))
+        s.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
+
+        while self.is_running:
+            s.sendto(self.data, ('<broadcast>', self.port_broadcast))
+            time.sleep(self.interval)
+
+    # -------------------------------------------------------------------------------
+
+    def stop(self):
+        """ Stop the beacon. """
+        if self.is_running:
+            self.is_running = False
+
+    # -------------------------------------------------------------------------------
+
+    def update_data(self):
+        url_node = str(self.protocol) + '://' + str(self.ip) + ':' + str(self.port)
+
+        data = ';'.join(['midas',
+                         str(self.name),
+                         str(self.type),
+                         str(self.id),
+                         url_node,
+                         str(self.status)
+                     ])
+
+        #data = ';'.join(['midas',
+        #                 str(self.name),
+        #                 str(self.type),
+        #                 str(self.id),
+        #                 url_node,
+        #                 str(self.description),
+        #                 str(self.status), 
+        #                 str(self.status_description), 
+        # ])
+
+        self.data = str.encode(data)
+
+    # -------------------------------------------------------------------------------
+
+    def set_status(self, status):
         """ Set the status of the node.
             If the node is already broadcasting, change the message in the broadcast. 
         """
-        self.status_online = status_online
-        self.status_description = status_description
+        self.status = status
+        # self.status_description = status_description
 
-        if (self.is_visible):
-            self.publish()
+        if self.is_running:
+            self.stop()
+            self.start()
 
-    def publish(self):
-        """ Start publishing data on the beacon, i.e., make it visible. """
-        if self.ip is None:
-            self.ip = self.zb.get_hostname()
+# -------------------------------------------------------------------------------
+# Service discovery
+# -------------------------------------------------------------------------------
+def discover_all_nodes(timeout = 10, port_broadcast = 5670):
+    """ Discover all MIDAS nodes and return them as a dictionary."""
 
-        url_node = str(self.protocol) + '://' + str(self.ip) + ':' + str(self.port)
+    s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    s.bind(('', port_broadcast))
+    s.setblocking(0)
 
-        data = ';'.join(['midas', str(self.service), str(self.id), 
-                            str(self.status_online), 
-                            str(self.status_description), 
-                            url_node, str(self.description)])
-        data = str.encode(data)
-        self.is_visible = True
-        self.zb.publish(data)
+    buffersize = 1024
+    t_start = time.time()
 
-    def subscribe(self, topic = ''):
-        """ Subscribe to a topic. If the length of the topic is empty (default),
-            the beacon receives all messages.
-        """
-        self.zb.subscribe(str.encode(topic))
+    tmp_list  = []
+    node_dict = {}
 
-    # --- service
+    while(time.time() - t_start < timeout):
+        result = select.select([s], [], [], timeout)
+        if result[0]:
+            message = result[0][0].recv(buffersize)
+            message = message.decode('ascii')
+            if message.startswith('midas'):
+                message = validate_message(message)
+                if message not in tmp_list:
+                    tmp_list.append(message)
+                    node_dict[message['name']] = message
 
-    def set_service(self, service):
-        self.service = service
+    return node_dict
 
-    def get_service(self):
-        return self.service
+# -------------------------------------------------------------------------------
 
-    # --- port
+def validate_message(message):
+    """ Validate a received message to make sure that it
+        is a valid message in the MIDAS framework and return
+        a dictionary containing the information sent by the beacon.
+    """
+    message = message.split(';')
+    result  = None
 
-    def set_port(self, port):
-        self.port = port
+    if message[0] == 'midas':
+        k = ['name', 'type', 'id', 'address', 'status']
+        result = dict(zip(k, message[1:]))
 
-    def get_port(self):
-        return self.port
+    return result
 
-    # --- ip
-    def set_ip(self, ip):
-        self.ip = ip
+# -------------------------------------------------------------------------------
 
-    def get_ip(self):
-        return self.ip
+def filter_nodes(node_dict, f = {}):
+    """ Filter nodes based on criteria in the filter dictionary. 
 
-    # --- id
+       Args:
+            node_dict   : dictionary with nodes from discover_all_nodes()
+            f           : a dictionary with criteria to filter nodes from
+                          node_dict.
 
-    def set_id(self, id):
-        self.id = id
+      Returns: a new dictionary with only nodes matching the filter.
+    """
 
-    def get_id(self):
-        return self.id
+    if len(f) > 0:
+        matching_nodes = {}
 
-    # --- description
+        # build the template string
+        tk = list(f.keys())
+        tk.sort()
+        template = make_string(f, tk)
 
-    def set_description(self, description):
-        self.description = description
+        # compare the template with all candidates
+        for n in node_dict:
+            if make_string(node_dict[n], tk) == template:
+                matching_nodes[n] = node_dict[n]
+    else:
+        matching_nodes = node_dict
 
-    def get_description(self):
-        return self.description
+    return matching_nodes
 
+# -------------------------------------------------------------------------------
 
-    def get_hostname(self):
-        return self.zb.get_hostname()
-
-    def validate_message(self, message):
-        """ Validate a received message to make sure that it
-            is a valid message in the MIDAS framework and return
-            a dictionary containing the information sent by the beacon.
-        """
-        ip = message[0]
-        message = message[1].split(';')
-        if message[0] == 'midas':
-            k = ['service', 'id', 'status_online', 'status_description', 
-                    'address', 'description']
-            return dict(zip(k, message[1:]))
-        else:
-            return None
-
-    
-    def discover_all_services(self, timeout = 5):
-        """ Discover all MIDAS services and return them as a list."""
-
-        print('Discovering all MIDAS services.')
-        poller = zmq.Poller()
-        pipe = self.zb.get_socket()
-        poller.register(pipe, zmq.POLLIN)
-        t_start = time.time()
-        service_list = {}
-        tmp_list = []
-
-        while(time.time() - t_start < timeout):
-            items = dict(poller.poll(timeout * 1000))
-            if pipe in items and items[pipe] == zmq.POLLIN:
-                more = True
-                message = []
-                while more:
-                    message.append(pipe.recv_string(zmq.NOBLOCK))
-                    more = pipe.getsockopt(zmq.RCVMORE)
-                message = self.validate_message(message)
-                if message:
-                    if message not in tmp_list:
-                        tmp_list.append(message)
-                        service_list[message['service']]=message
-
-        return service_list
-
-    
-
-    def discover_service(self, service = None, id = None, timeout = 5):
-        """ Discover MIDAS services basd on service name and id. """
-
-        poller = zmq.Poller()
-        pipe = self.zb.get_socket()
-        poller.register(pipe, zmq.POLLIN)
-        t_start = time.time()
-        while(time.time() - t_start < timeout):
-            items = dict(poller.poll(timeout * 1000))
-            if pipe in items and items[pipe] == zmq.POLLIN:
-                more = True
-                message = []
-                while more:
-                    message.append(pipe.recv_string(zmq.NOBLOCK))
-                    more = pipe.getsockopt(zmq.RCVMORE)
-                message = self.validate_message(message)
-
-                # validate the filter criteria
-                if message:
-                    valid = False
-                    if id is not None:
-                        if (message['service'] == service) and (message['id'] == id):
-                            valid = True
-                    else:
-                        if message['service'] == service:
-                            valid = True
-
-                    if valid:
-                        return message
-        return(None)
-
+def make_string(d, key_list):
+    """ Make a string from dictionary values using keys given as a list. """
+    return ';'.join([str(d[k]) for k in key_list])
 
 # -------------------------------------------------------------------------------
 # Messages
@@ -276,7 +279,6 @@ def midas_receive_message(socket):
     elif message['type'] == 'command':
         message['command'] = request
 
-    # print(message)
     return message
 
 
@@ -664,6 +666,8 @@ def LRU_queue_broker(url_frontend, url_backend, NBR_WORKERS, run_state):
     frontend.close()
     backend.close()
     context.term()
+
+
 
 # -------------------------------------------------------------------------------
 # Do nothing if we run this module

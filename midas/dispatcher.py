@@ -21,6 +21,7 @@ import waitress
 import threading
 from . import utilities as mu
 
+
 class Dispatcher():
     """ Dispatcher for MIDAS. """
     def __init__(self,
@@ -94,10 +95,6 @@ class Dispatcher():
 
         self.context = zmq.Context()
 
-        # start beacon and discover nodes
-        self.beacon = mu.Beacon(service = "midas_dispatcher", port = "5000")
-        self.beacon.subscribe()
-
         # create a variable that tracks if there are new publishers
         self.new_publisher = mu.DataState(0)
 
@@ -160,6 +157,8 @@ class Dispatcher():
                     psproxy.start()
                     proxy_running = True
 
+                time.sleep(0.0001)
+
 # =============================================================================
 
     def update_nodes(self):
@@ -176,17 +175,14 @@ class Dispatcher():
         """ Find all nodes that are online. """
 
         new_nodes = {}
+        all_nodes = mu.discover_all_nodes(timeout = 5)
 
-        if self.node_list:
-            for node in self.node_list:
-                serv = self.beacon.discover_service(node)
-                if serv:
-                    new_nodes[node] = serv
-        else:
-            new_nodes = self.beacon.discover_all_services(timeout=5)
+        for node in all_nodes:
+            if node in self.node_list:
+                new_nodes[node] = all_nodes[node]
 
         self.node_addresses = new_nodes
- 
+
 
     def discover_node_properties(self):
         """ Discover the properties of nodes in our address book. """
@@ -248,9 +244,17 @@ class Dispatcher():
 
     def format_json(self, data):
         """ Utility function to format json-dumps. """
+        callback_function = bottle.request.GET.get('callback')
 
-        return  json.dumps(data, sort_keys = True, indent = 4, separators = (',',' : '))
+        bottle.response.content_type = 'application/json'
+      
+        if callback_function:
+            result = "%s(%s)" % (callback_function, data)
+        else:
+            result = json.dumps(data, sort_keys = True, indent = 4, separators = (',',' : '))
 
+        return result
+        
 # =============================================================================
 # Route definitions
 # =============================================================================
@@ -258,7 +262,7 @@ class Dispatcher():
     def root(self):
         """ Returns root. """
 
-        return ''
+        return('MIDAS Dispatcher online.')
 
     # ------------------------------------------------------------------------------
 
@@ -285,19 +289,15 @@ class Dispatcher():
         {
             "example_node_one" : {
                 "address" : "tcp://192.168.2.226:5011",
-                "description" : "An example node",
                 "id" : "01",
                 "service" : "example_node_one",
-                "status_description" : "",
-                "status_online" : "online"
+                "status" : "online"
             },
             "example_node_two" : {
                 "address" : "tcp://192.168.2.226:5014",
-                "description" : "Another example node",
                 "id" : "02",
                 "service" : "example_node_two",
-                "status_description" : "",
-                "status_online" : "online"
+                "status" : "online"
             }
         }
         """
@@ -305,6 +305,7 @@ class Dispatcher():
         bottle.response.content_type = 'application/json'
 
         return self.format_json(self.node_addresses)
+        #return self.node_addresses
 
     # ------------------------------------------------------------------------------
 
@@ -479,7 +480,7 @@ class Dispatcher():
         else:
             results = {'error' : 'node not available'}
 
-        return results
+        return self.format_json(results)
  
     # ------------------------------------------------------------------------------
 
@@ -582,9 +583,9 @@ class Dispatcher():
             mu.midas_send_message(socket_tmp, 'metric', request)
             results = mu.midas_receive_reply(socket_tmp)
 
-            return results
+            return self.format_json(results)
         else:
-            return {'error' : 'node not available'}
+            return self.format_json({'error' : 'node not available'})
 
 
     # ------------------------------------------------------------------------------
@@ -663,9 +664,9 @@ class Dispatcher():
             
             mu.midas_send_message(socket_tmp, 'data', request)
             data = mu.midas_receive_reply(socket_tmp)
-            return data
+            return self.format_json(data)
         else:
-            return {node: 'not available'}
+            return self.format_json({node: 'not available'})
 
     # ------------------------------------------------------------------------------
     # Test function
@@ -675,7 +676,7 @@ class Dispatcher():
 
         x = random.uniform(0,1)
 
-        return json.dumps({'test':x})
+        return self.format_json({'test' : x})
 
     # ------------------------------------------------------------------------------
     # Minimalist user interface for the node
