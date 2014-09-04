@@ -28,6 +28,7 @@ class BaseNode(object):
                  nodeid                         = "00",
                  nodedesc                       = "base node",
                  primary_node                   = True,
+                 ip                             = None,
                  port_frontend                  = 5001,
                  port_backend                   = 5002,
                  port_publisher                 = '',
@@ -66,6 +67,9 @@ class BaseNode(object):
 
             if 'nodedesc' in config:
                 nodedesc = config['nodedesc']
+                
+            if 'ip' in config:
+                node_ip = config['ip'].lower().strip()
 
             if 'primary_node' in config:
                 primary_node = mu.str2bool(config['primary_node'])
@@ -93,10 +97,10 @@ class BaseNode(object):
                 n_channels = int(config['n_channels'])
 
             if 'channel_names' in config:
-                channel_names = [i.strip() for i in config['channel_names'].split(',')]
+                channel_names = mu.listify(config, 'channel_names')
 
             if 'channel_descriptions' in config:
-                channel_descriptions = [i.strip() for i in config['channel_descriptions'].split(',')]
+                channel_descriptions = mu.listify(config, 'channel_descriptions')
 
             if 'sampling_rate' in config:
                 sampling_rate = int(config['sampling_rate'])
@@ -118,10 +122,10 @@ class BaseNode(object):
                 buffer_size_secondary = int(config['buffer_size_secondary'])
 
             if 'channel_names_secondary' in config:
-                channel_names_secondary = [i.strip() for i in config['channel_names_secondary'].split(',')]
+                channel_names_secondary = mu.listify(config, 'channel_names_secondary')
 
             if 'channel_descriptions_secondary' in config:
-                channel_descriptions_secondary = [i.strip() for i in config['channel_descriptions_secondary'].split(',')]
+                channel_descriptions_secondary = mu.listify(config, 'channel_descriptions_secondary')
             
 
         # general node properties
@@ -136,8 +140,13 @@ class BaseNode(object):
         self.run_publisher  = run_publisher
         self.n_workers      = n_workers
 
-        self.node_ip       = mu.get_ip()
-
+        # Automatically determine the IP of the node unless set in the node configuration
+        if (node_ip is None) or (node_ip == 'auto'):
+            node_ip = mu.get_ip()
+        elif node_ip is 'localhost':
+            node_ip = '127.0.0.1'
+        self.node_ip = node_ip
+       
         self.url_frontend  = mu.make_url(self.node_ip, self.port_frontend)
         self.url_backend   = mu.make_url('127.0.0.1', self.port_backend)
 
@@ -569,6 +578,7 @@ class BaseNode(object):
 
         # Create and configure beacon
         self.beacon = mu.Beacon(name = self.nodename, type = self.nodetype, id = self.nodeid, interval = 2)
+        self.beacon.ip = self.node_ip
         self.beacon.port = self.port_frontend
       
         # Start the load-balancing broker

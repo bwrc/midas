@@ -25,7 +25,7 @@ from . import utilities as mu
 class Dispatcher():
     """ Dispatcher for MIDAS. """
     def __init__(self,
-                 ini_file = None,
+                 config = None,
                  node_list = None,
                  port = 8080,
                  ip = None,
@@ -53,21 +53,21 @@ class Dispatcher():
         self.node_publisher_connected  = []
 
         # server settings
-        if ini_file:
-            if 'port' in ini_file:
-                port = int(ini_file['port'])
-            if 'threads' in ini_file:
-                n_threads = ini_file['threads']
-            if 'node_list' in ini_file:
-                node_list = ini_file['node_list'].split(',')
-            if 'ip' in ini_file:
-                ip = ini_file['ip']
-            if 'run_pubsub_proxy' in ini_file:
-                run_pubsub_proxy = mu.str2bool(ini_file['run_pubsub_proxy'])
-            if 'proxy_port_in' in ini_file:
-                proxy_port_in = ini_file['proxy_port_in']
-            if 'proxy_port_out' in ini_file:
-                proxy_port_out= ini_file['proxy_port_out']
+        if config:
+            if 'port' in config:
+                port = int(config['port'])
+            if 'threads' in config:
+                n_threads = config['threads']
+            if 'node_list' in config:
+                node_list = mu.listify(config, 'node_list')
+            if 'ip' in config:
+                ip = config['ip']
+            if 'run_pubsub_proxy' in config:
+                run_pubsub_proxy = mu.str2bool(config['run_pubsub_proxy'])
+            if 'proxy_port_in' in config:
+                proxy_port_in = config['proxy_port_in']
+            if 'proxy_port_out' in config:
+                proxy_port_out= config['proxy_port_out']
 
         self.port       = port
         self.n_threads  = n_threads
@@ -742,8 +742,6 @@ class Dispatcher():
         # Start the web server
         app = bottle.default_app()
         waitress.serve(app,host = self.ip, port = self.port, threads = self.n_threads)
-        bottle.run(host = self.ip, port = self.port, server = self.server)
-
 
     # ------------------------------------------------------------------------------
     # Stop

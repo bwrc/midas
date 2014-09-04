@@ -78,9 +78,12 @@ class Beacon(object):
         s.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
 
         while self.is_running:
-            s.sendto(self.data, ('<broadcast>', self.port_broadcast))
-            time.sleep(self.interval)
-
+            try:
+                s.sendto(self.data, ('<broadcast>', self.port_broadcast))
+                time.sleep(self.interval)
+            except OSError:
+                print('Broadcast error in beacon.')
+                
     # -------------------------------------------------------------------------------
 
     def stop(self):
@@ -329,10 +332,15 @@ def parse_metric(x):
 def get_ip():
     """ Return the current IP address."""
 
-    s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-    s.connect(('8.8.8.8', 0))
+    try:
+        s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        s.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
+        s.connect(('<broadcast>', 0))
+        ip = s.getsockname()[0]
+    except OSError:
+        ip = '127.0.0.1'
 
-    return s.getsockname()[0]
+    return(ip)
 
 # -------------------------------------------------------------------------------
 
@@ -413,6 +421,13 @@ def str2bool(x):
     """ Convert a string to a boolean. """
 
     return x.lower() in ("true", "1")
+
+# -------------------------------------------------------------------------------
+
+def listify(config, key, sep = ','):
+    """ Create a list from a string containing list elements separated by sep."""
+
+    return [i.strip() for i in config[key].split(sep)]
 
 # -------------------------------------------------------------------------------
 

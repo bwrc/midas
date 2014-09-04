@@ -26,8 +26,8 @@ class MidasNodeExample(BaseNode):
     # Define an analysis function as a class method so that it also
     # can access the attributes of the class, which is needed in order
     # to send publish messages
-    def metric_e(self, x):
-        """ Returns the metric E calculated from the data. """
+    def metric_f(self, x):
+        """ Returns the metric F calculated from the data. """
 
         x = random.random()
 
