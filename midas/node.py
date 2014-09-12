@@ -42,7 +42,7 @@ class BaseNode(object):
                  run_publisher                  = False,
                  secondary_data                 = False,
                  n_channels_secondary           = 0,
-                 buffer_size_secondary  = 0,
+                 buffer_size_secondary          = 0,
                  channel_names_secondary        = [],
                  channel_descriptions_secondary = None,
                  default_channel                = ''):
@@ -69,7 +69,7 @@ class BaseNode(object):
                 nodedesc = config['nodedesc']
                 
             if 'ip' in config:
-                node_ip = config['ip'].lower().strip()
+                ip = config['ip'].lower().strip()
 
             if 'primary_node' in config:
                 primary_node = mu.str2bool(config['primary_node'])
@@ -141,32 +141,33 @@ class BaseNode(object):
         self.n_workers      = n_workers
 
         # Automatically determine the IP of the node unless set in the node configuration
-        if (node_ip is None) or (node_ip == 'auto'):
-            node_ip = mu.get_ip()
-        elif node_ip is 'localhost':
-            node_ip = '127.0.0.1'
-        self.node_ip = node_ip
+        if (ip is None) or (ip == 'auto'):
+            ip = mu.get_ip()
+        elif ip is 'localhost':
+            ip = '127.0.0.1'
+        self.ip = ip
        
-        self.url_frontend  = mu.make_url(self.node_ip, self.port_frontend)
+        self.url_frontend  = mu.make_url(self.ip, self.port_frontend)
         self.url_backend   = mu.make_url('127.0.0.1', self.port_backend)
 
         # publisher settings
         self.topic_list = {}
 
         if self.run_publisher:
-            self.url_publisher = "tcp://" + str(self.node_ip) + ":" + str(self.port_publisher)
+            self.url_publisher = "tcp://" + str(self.ip) + ":" + str(self.port_publisher)
             self.message_queue = mp.Queue(10)
         else:
             self.url_publisher = ''
 
         # primary channels and data stream properties
-        self.lsl_stream_name      = lsl_stream_name
-        self.n_channels           = n_channels
-        self.channel_names        = channel_names
-        self.channel_descriptions = channel_descriptions
-        self.sampling_rate        = sampling_rate
-        self.buffer_size_s        = buffer_size_s
-        self.buffer_size          = int(self.buffer_size_s * self.sampling_rate)
+        if self.primary_node:
+            self.lsl_stream_name      = lsl_stream_name
+            self.n_channels           = n_channels
+            self.channel_names        = channel_names
+            self.channel_descriptions = channel_descriptions
+            self.sampling_rate        = sampling_rate
+            self.buffer_size_s        = buffer_size_s
+            self.buffer_size          = int(self.buffer_size_s * self.sampling_rate)
 
         # secondary channels
         self.secondary_data                 = secondary_data
@@ -175,7 +176,6 @@ class BaseNode(object):
         self.buffer_size_secondary          = buffer_size_secondary
         self.channel_names_secondary        = channel_names_secondary
         self.channel_descriptions_secondary = channel_descriptions_secondary
-
 
         if self.channel_descriptions is None:
             self.channel_descriptions = [''] * self.n_channels
@@ -203,13 +203,18 @@ class BaseNode(object):
         # Data containers
         # ------------------------------
         # Preallocate primary buffers
-        self.channel_data = [0] * self.n_channels
+        if self.primary_node:
+            self.channel_data = [0] * self.n_channels
 
-        for i in range(self.n_channels):
-            self.channel_data[i] = mp.Array('d', [0] * self.buffer_size)
+            for i in range(self.n_channels):
+                self.channel_data[i] = mp.Array('d', [0] * self.buffer_size)
 
-        self.time_array = mp.Array('d', [0] * self.buffer_size)
-        self.last_time = mp.Array('d',[0])
+            self.time_array = mp.Array('d', [0] * self.buffer_size)
+            self.last_time = mp.Array('d',[0])
+        else:
+            self.channel_data = []
+            self.time_array   = []
+            self.last_time    = []
 
         # Preallocate secondary buffers
         if self.secondary_data:
@@ -444,7 +449,8 @@ class BaseNode(object):
              A dictionary with the channel names as keys and the data as values.
         """
 
-        channel_data, time_array = self.data_snapshot(timewindow)
+        if self.primary_node:
+            channel_data, time_array = self.data_snapshot(timewindow)
 
         if self.secondary_data:
             channel_data_secondary, time_array_secondary = self.data_snapshot_secondary(timewindow)
@@ -482,10 +488,18 @@ class BaseNode(object):
         """
 
         # take a snapshot of the data
-        channel_data_copy, time_array_copy = self.data_snapshot(timewindow)
+        # -- primary data
+        if self.primary_node:
+            channel_data_copy, time_array_copy = self.data_snapshot(timewindow)
+        else:
+            channel_data_copy = None
+
+        # -- secondary data
         if self.secondary_data:
             channel_data_copy_secondary, time_array_copy_secondary = self.data_snapshot_secondary(timewindow)
-        
+        else:
+            channel_data_copy_secondary = None
+
         # dict that will contain the results
         results = {}
 
@@ -495,22 +509,16 @@ class BaseNode(object):
             metric = tmp[0]
 
             if metric in self.metric_names:
-                # the channel is always given as the first argument
-                # and it is mandatory
-                channel_name = tmp[1]
+                # the channel (or a list of channels)is always given as the first argument and it is mandatory
+                channels = tmp[1]
                 tmp = tmp[1:]
-                if ',' in channel_name:
-                    channel_name = channel_name.split(',')
+                if ',' in channels:
+                    channels = channels.split(',')
+                else:
+                    channels = [channels]
 
                 # get the data for the selected channel(s)
-
-                if channel_name in self.channel_names:
-                    data = mu.get_channeL_data(channel_data_copy, self.channel_names, channel_name)
-                elif channel_name in self.channel_names_secondary:
-                    data = mu.get_channeL_data(channel_data_copy_secondary, self.channel_names_secondary, channel_name)
-                else:
-                    results[key] = 'channel not found'
-                    break
+                data = mu.get_channel_data(channels, channel_data_copy, channel_data_copy_secondary, self.channel_names, self.channel_names_secondary)
 
                 # analyze results using the parameters
                 if len(tmp) > 1:
@@ -578,7 +586,7 @@ class BaseNode(object):
 
         # Create and configure beacon
         self.beacon = mu.Beacon(name = self.nodename, type = self.nodetype, id = self.nodeid, interval = 2)
-        self.beacon.ip = self.node_ip
+        self.beacon.ip = self.ip
         self.beacon.port = self.port_frontend
       
         # Start the load-balancing broker

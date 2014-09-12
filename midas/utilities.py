@@ -12,7 +12,6 @@
 
 import zmq
 import time
-import ipaddress
 import socket
 import configparser
 import os.path
@@ -452,31 +451,38 @@ def get_channel_index(channel_list, channel_name):
 
 # -------------------------------------------------------------------------------
 
-def get_channeL_data(channel_data, channel_list, channel_name):
+def get_channel_data(channels, channel_data_primary, channel_data_secondary, channel_names_primary, channel_names_secondary):
     """ Return channel data.
         Return the data corresponding to the strings in channel_name, indexed
         according to channel_list.
 
     Args:
-         channel_data  : array of arrays containing the channel data
-         channel_list  : a list of all channels (string[])
-         channel_name  : a string or list of strings with a channel name,
-                         the index of which in the channel_list one wants to get
+         channels                : list of channel names to return
+         channel_data            : array of arrays containing the primary channel data
+         channel_data_secondary  : array of arrays containing the secondary channel data
+         channel_names           : list with all the primary channel names
+         channel_names_secondary : list with all the secondary channel names
     """
 
-    channel_index = get_channel_index(channel_list, channel_name)
+    data         = []
+    names        = []
 
-    if isinstance(channel_index, int):
-        data = channel_data[channel_index]
-    elif isinstance(channel_index, list):
-        data = [0] * len(channel_index)
-        for i, index in enumerate(channel_index):
-            data[i] = channel_data[index]
+    for c in channels:
+        if channel_data_primary is not None:
+            if c in channel_names_primary:
+                ci = get_channel_index(channel_names_primary, c)
+                data.append(channel_data_primary[ci])
+                names.append(c)
 
-    return data
+        if channel_data_secondary is not None:
+            if c in channel_names_secondary:
+                ci = get_channel_index(channel_names_secondary, c)
+                data.append(channel_data_secondary[ci])
+                names.append(c)
+
+    return {"data" : data, "names" : names}
+
     
-
-
 # -------------------------------------------------------------------------------
 
 def get_index_vector(N, buffer_full, writepointer):
