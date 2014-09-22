@@ -375,6 +375,25 @@ def midas_parse_config(nodeclass, *args):
     # Create the node
     return nodeclass(tmp)
     
+# -----------------------------------------------------------------------------
+
+def parse_config_to_dict(cfg_file,section):
+    """ Reads config file and returns a dict of parameters.
+
+    Args:
+        cfg_file: <String> path to the configuration ini-file
+        section: <String> section of the configuration file to read
+    Returns:
+        cfg: <dict> configuration parameters of 'section' as a dict
+    """
+    cfg = configparser.ConfigParser()
+    cfg.read(cfg_file)
+
+    if cfg.has_section(section):
+        return dict(cfg.items(section))
+    else:
+        print("Section '%s' not found in file %s!"%(section,cfg_file))
+        return None
 
 # -------------------------------------------------------------------------------
 

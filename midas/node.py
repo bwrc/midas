@@ -508,14 +508,21 @@ class BaseNode(object):
             tmp = metric.split(':')
             metric = tmp[0]
 
-            if metric in self.metric_names:
-                # the channel (or a list of channels)is always given as the first argument and it is mandatory
+            # making sure we can find the channels
+            if len(tmp)>1:
                 channels = tmp[1]
-                tmp = tmp[1:]
                 if ',' in channels:
                     channels = channels.split(',')
                 else:
                     channels = [channels]
+                channels_found = set(self.channel_names+self.channel_names_secondary).issuperset(set(channels))
+            else:
+                channels_found = False
+            # -----------------------------------
+
+            if metric in self.metric_names and channels_found:
+                # the channel (or a list of channels)is always given as the first argument and it is mandatory
+                tmp = tmp[1:]
 
                 # get the data for the selected channel(s)
                 data = mu.get_channel_data(channels, channel_data_copy, channel_data_copy_secondary, self.channel_names, self.channel_names_secondary)
@@ -537,7 +544,7 @@ class BaseNode(object):
                     except TypeError as err:
                         results[key] = str(err)
             else: 
-                results[key] = 'unknown metric'
+                results[key] = 'unknown metric and/or channel'
 
         return results
 

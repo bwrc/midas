@@ -20,7 +20,8 @@ class MidasNodeExample(BaseNode):
         self.metric_functions = []
 
         self.metric_functions.append(metric_d)
-        self.metric_functions.append(self.metric_e)
+        self.metric_functions.append(metric_e)
+        self.metric_functions.append(self.metric_f)
         self.generate_metric_lists()
 
     # Define an analysis function as a class method so that it also

@@ -1,3 +1,9 @@
+1.0.2 (22.09.2014)
+==================
+* Fixed bug that crashed responders with badly formatted HTML-queries
+* Non-existing channels can no longer be requested
+* Fixed the syntax of example code
+
 1.0.1 (12.09.2014)
 ==================
 * Fixed bug that prevented data from multiple channels to be used.
