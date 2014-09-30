@@ -1,3 +1,13 @@
+1.0.3 (30.09.2014)
+==================
+* Removed generate_metric_list-call from nodes and moved it to BaseNode
+* Improved current examples
+* Added metric_functions initialization to BaseNode
+* Added secondary data to midas_node_example_A
+* Added separate locks and buffer sizes for secondary channels.
+* Added handling functions for secondary data. Both single samples and chunks can now be pushed into secondary data channels.
+* Fixed a bug where metrics and data replies were JSON.dumped twice, resulting in malformed return values.
+
 1.0.2 (22.09.2014)
 ==================
 * Fixed bug that crashed responders with badly formatted HTML-queries

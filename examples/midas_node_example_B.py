@@ -12,17 +12,16 @@ from midas import utilities as mu
 # Create an Example Node based on the Base Node
 # ------------------------------------------------------------------------------
 class MidasNodeExample(BaseNode):
+    """ MIDAS example node B. """
     def __init__(self, *args):
+        """ Initialize example node B. """
         super().__init__(*args)
 
         # Generate dict for metric descriptions and function pointers
         # these are saved to metric_list and metric_functions dicts
-        self.metric_functions = []
-
         self.metric_functions.append(metric_d)
         self.metric_functions.append(metric_e)
         self.metric_functions.append(self.metric_f)
-        self.generate_metric_lists()
 
     # Define an analysis function as a class method so that it also
     # can access the attributes of the class, which is needed in order
@@ -42,7 +41,7 @@ class MidasNodeExample(BaseNode):
 # ------------------------------------------------------------------------------
         
 def metric_d(x, bstart, bstop):
-    """ Returns the metric D calculated from the data. The function takes the start and stop frequencies as paramters: metric_a(band_start, band_stop)."""
+    """ Returns the metric D calculated from the data. The function takes the start and stop frequencies as parameters: metric_a(band_start, band_stop)."""
     x = random.random()
     return(x)
 

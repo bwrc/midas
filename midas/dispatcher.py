@@ -255,6 +255,21 @@ class Dispatcher():
 
         return result
         
+    def pass_json(self, data):
+        """ Just pass the data, dont wrap in JSON (because metrics and data 
+            are already in JSON).
+        """
+        callback_function = bottle.request.GET.get('callback')
+
+        bottle.response.content_type = 'application/json'
+      
+        if callback_function:
+            result = "%s(%s)" % (callback_function, data)
+        else:
+            result = data
+
+        return result
+ 
 # =============================================================================
 # Route definitions
 # =============================================================================
@@ -583,7 +598,7 @@ class Dispatcher():
             mu.midas_send_message(socket_tmp, 'metric', request)
             results = mu.midas_receive_reply(socket_tmp)
 
-            return self.format_json(results)
+            return self.pass_json(results)
         else:
             return self.format_json({'error' : 'node not available'})
 
@@ -664,7 +679,7 @@ class Dispatcher():
             
             mu.midas_send_message(socket_tmp, 'data', request)
             data = mu.midas_receive_reply(socket_tmp)
-            return self.format_json(data)
+            return self.pass_json(data)
         else:
             return self.format_json({node: 'not available'})
 

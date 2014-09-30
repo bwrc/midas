@@ -173,7 +173,7 @@ class BaseNode(object):
         self.secondary_data                 = secondary_data
         self.default_channel                = default_channel
         self.n_channels_secondary           = n_channels_secondary
-        self.buffer_size_secondary          = buffer_size_secondary
+        self.buffer_size_secondary          = [buffer_size_secondary]*self.n_channels_secondary
         self.channel_names_secondary        = channel_names_secondary
         self.channel_descriptions_secondary = channel_descriptions_secondary
 
@@ -197,7 +197,9 @@ class BaseNode(object):
         self.buffer_full  = mp.Value('i', 0)
 
         self.lock_primary   = mp.Lock()
-        self.lock_secondary = mp.Lock()
+        self.lock_secondary = []
+        for i in range(self.n_channels_secondary):
+            self.lock_secondary.append(mp.Lock()) 
 
         # ------------------------------
         # Data containers
@@ -223,10 +225,8 @@ class BaseNode(object):
             self.last_time_secondary    = mp.Array('d', [0] * self.n_channels_secondary)
 
             for i in range(self.n_channels_secondary):
-                self.channel_data_secondary[i] = mp.Array('d', [0] * self.buffer_size_secondary)
-
-            for i in range(self.n_channels_secondary):
-                self.time_array_secondary[i] = mp.Array('d', [0] * self.buffer_size_secondary)
+                self.channel_data_secondary[i] = mp.Array('d', [0] * self.buffer_size_secondary[i])
+                self.time_array_secondary[i] = mp.Array('d', [0] * self.buffer_size_secondary[i])
         
             self.writepointer_secondary = mp.Array('i', [0] * self.n_channels_secondary)
             self.buffer_full_secondary  = mp.Array('i', [0] * self.n_channels_secondary)
@@ -243,6 +243,10 @@ class BaseNode(object):
         # ------------------------------
         self.process_list = []
 
+        # ------------------------------
+        # Empty container for metric functions
+        # ------------------------------
+        self.metric_functions = []
 
     # ------------------------------------------------------------------------------
     # Function for getting the next sample from the nodes channel data buffer
@@ -404,7 +408,7 @@ class BaseNode(object):
         time_array_copy   = [0] * self.n_channels_secondary
 
         # make copies
-        self.lock_secondary.acquire()
+        [lock.acquire() for lock in self.lock_secondary]
 
         for i in range(self.n_channels_secondary):
             channel_data_copy[i] = self.channel_data_secondary[i][:]
@@ -415,11 +419,11 @@ class BaseNode(object):
         wp_copy           = self.writepointer_secondary[:]
         bf_copy           = self.buffer_full_secondary[:]
 
-        self.lock_secondary.release()
+        [lock.release() for lock in self.lock_secondary]
 
         for i in range(self.n_channels_secondary):
             # create index vector to unwrap circular buffer
-            ind = mu.get_index_vector(self.buffer_size_secondary, bf_copy[i], wp_copy[i])
+            ind = mu.get_index_vector(self.buffer_size_secondary[i], bf_copy[i], wp_copy[i])
 
             # unwrap the time vector
             time_array_copy[i] = [time_array_copy[i][j] for j in ind]
@@ -434,6 +438,47 @@ class BaseNode(object):
             channel_data_copy[i] = [channel_data_copy[i][j] for j in ind][index_start:index_stop]
 
         return channel_data_copy, time_array_copy
+
+    def push_sample_secondary(self,ch,timep,value,use_lock=True):
+        """ Push a new sample into a secondary data buffer. 
+
+        Args:
+               ch: <int>    secondary data channel index
+            timep: <float>  time stamp of new sample
+            value: <float>  value of new sample
+        """
+        if use_lock:
+            self.lock_secondary[ch].acquire()
+
+        self.channel_data_secondary[ch][self.writepointer_secondary[ch]] = value
+        self.time_array_secondary[ch][self.writepointer_secondary[ch]] = timep
+        self.writepointer_secondary[ch] += 1
+
+        if ((0 == self.buffer_full_secondary[ch]) and 
+                (self.writepointer_secondary[ch] >= self.buffer_size_secondary[ch])):
+            self.buffer_full_secondary[ch] = 1
+
+
+        self.writepointer_secondary[ch] = (self.writepointer_secondary[ch] %
+                                                    self.buffer_size_secondary[ch])
+        if use_lock:
+            self.lock_secondary[ch].release()
+
+        # check if we need to flip buffer_full flag
+
+    def push_chunk_secondary(self,ch,timeps,values):
+        """ Push a chunk of new samples into a secondary data buffer.
+ 
+        Args:
+                ch: <int>   secondary data channel index
+            timeps: <list>  list of time stamps for new values
+            values: <list>  list of new values
+        """
+
+        self.lock_secondary[ch].acquire()
+        for t,v in zip(timeps,values):
+            self.push_sample_secondary(ch,t,v,use_lock=False)
+        self.lock_secondary[ch].release()
 
     # ------------------------------------------------------------------------------
     # Return data
@@ -591,6 +636,9 @@ class BaseNode(object):
         """ Start the node. """
         self.run_state.value = 1
 
+        # Add user-defined metrics to the metric list
+        self.generate_metric_lists()
+
         # Create and configure beacon
         self.beacon = mu.Beacon(name = self.nodename, type = self.nodetype, id = self.nodeid, interval = 2)
         self.beacon.ip = self.ip
@@ -616,7 +664,7 @@ class BaseNode(object):
         for i in range(self.n_workers):
             self.proc_responder_list[i] = mp.Process(target = self.responder, args=(i,))
             self.proc_responder_list[i].start()
-
+        
         # Start user-defined processes, if there are any
         self.proc_user_list = [0] * len(self.process_list)
 
@@ -700,7 +748,6 @@ class BaseNode(object):
             metric_descriptions : dict with function names as key and description as value
             metric_pointers     : dict with function names as key and function pointer as value
         """
-
         self.metric_names        = [m.__name__ for m in self.metric_functions]
         self.metric_descriptions = dict(zip(self.metric_names, [m.__doc__.split('\n')[0].strip() for m in self.metric_functions]))
         self.metric_pointers     = dict(zip(self.metric_names, self.metric_functions))
