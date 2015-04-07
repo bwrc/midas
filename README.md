@@ -8,6 +8,11 @@ of such into machine learning frameworks.
 For more information (background, installation, usage, ...) refer to
 the [MIDAS wiki](https://github.com/bwrc/midas/wiki).
 
+Installation
+------------
+	pip install bottle PyZMQ Waitress
+	pip install git+https://github.com/bwrc/midas
+
 License information
 -------------------
 Please refer to the file "LICENSE" for license information for this
