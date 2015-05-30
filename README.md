@@ -8,7 +8,11 @@ of such into machine learning frameworks.
 For more information (background, installation, usage, ...) refer to
 the [MIDAS wiki](https://github.com/bwrc/midas/wiki).
 
-Installation
+This repository only contains the core library used to setup a MIDAS
+network. For practical examples please check out the
+[MIDAS-nodes](https://github.com/bwrc/midas-nodes/) repository.
+
+Installation (pip3 if your system uses Python 2.7 by default)
 ------------
 	pip install bottle PyZMQ Waitress
 	pip install git+https://github.com/bwrc/midas
