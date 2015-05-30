@@ -25,7 +25,8 @@ from . import utilities as mu
 
 class Dispatcher():
 
-    """ Dispatcher for MIDAS. """
+    """ Dispatcher for MIDAS.
+    """
 
     def __init__(self,
                  config=None,
@@ -108,8 +109,6 @@ class Dispatcher():
         if self.node_addresses:
             self.discover_node_properties()
 
-# =============================================================================
-
     def pubsub_proxy(self, context):
         """ Run proxy for publisher-subscriber.
 
@@ -165,10 +164,9 @@ class Dispatcher():
 
                 time.sleep(0.0001)
 
-# =============================================================================
-
     def update_nodes(self):
-        """ Update nodes and corresponding metrics. """
+        """ Update nodes and corresponding metrics.
+        """
 
         while self.run_state:
             self.discover_nodes()
@@ -177,19 +175,23 @@ class Dispatcher():
             time.sleep(self.discovery_interval)
 
     def discover_nodes(self):
-        """ Find all nodes that are online. """
+        """ Find all nodes that are online.
+        """
 
         new_nodes = {}
         all_nodes = mu.discover_all_nodes(timeout=5)
 
-        for node in all_nodes:
-            if node in self.node_list:
-                new_nodes[node] = all_nodes[node]
-
-        self.node_addresses = new_nodes
+        if self.node_list is not None:
+            for node in all_nodes:
+                if node in self.node_list:
+                    new_nodes[node] = all_nodes[node]
+            self.node_addresses = new_nodes
+        else:
+            self.node_addresses = all_nodes
 
     def discover_node_properties(self):
-        """ Discover the properties of nodes in our address book. """
+        """ Discover the properties of nodes in our address book.
+        """
 
         new_metrics = {}
         new_data = {}
@@ -205,34 +207,23 @@ class Dispatcher():
                 socket_tmp.connect(self.node_addresses[node]['address'])
 
                 # Get metric list
-                mu.midas_send_message(
-                    socket_tmp,
-                    'command',
-                    ['get_metric_list'])
-                node_metric_list = mu.midas_receive_reply(
-                    socket_tmp,
-                    deserialize=True)
+                mu.midas_send(socket_tmp, 'command', 'get_metric_list')
+                node_metric_list = json.loads(socket_tmp.recv_string())
                 new_metrics.update({node: node_metric_list})
 
                 # Get data list
-                mu.midas_send_message(socket_tmp, 'command', ['get_data_list'])
-                node_data_list = mu.midas_receive_reply(
-                    socket_tmp,
-                    deserialize=True)
+                mu.midas_send(socket_tmp, 'command', 'get_data_list')
+                node_data_list = json.loads(socket_tmp.recv_string())
                 new_data.update({node: node_data_list})
 
                 # Get topic list
-                mu.midas_send_message(socket_tmp, 'command', ['get_topic_list'])
-                node_topic_list = mu.midas_receive_reply(
-                    socket_tmp,
-                    deserialize=True)
+                mu.midas_send(socket_tmp, 'command', 'get_topic_list')
+                node_topic_list = json.loads(socket_tmp.recv_string())
                 new_topics.update({node: node_topic_list})
 
                 # Get publisher URLs
-                mu.midas_send_message(socket_tmp, 'command', ['get_publisher'])
-                node_publisher_url = mu.midas_receive_reply(
-                    socket_tmp,
-                    deserialize=True)
+                mu.midas_send(socket_tmp, 'command', 'get_publisher')
+                node_publisher_url = json.loads(socket_tmp.recv_string())
                 new_publisher_urls.update({node: node_publisher_url})
 
                 if node_publisher_url not in self.node_publisher_connected:
@@ -248,19 +239,9 @@ class Dispatcher():
             if new_publishers > 0:
                 self.new_publisher.setstate(1)
 
-
-# =============================================================================
-
-    def wrap_list(self, dump):
-        """ Utility function to format json-dumps as HTML. """
-
-        return("<pre>" +
-               json.dumps(dump, sort_keys=True, indent=4,
-                          separators=(',', ':'))
-               + "</pre>")
-
     def format_json(self, data):
-        """ Utility function to format json-dumps. """
+        """ Utility function to format json-dumps.
+        """
         callback_function = bottle.request.GET.get('callback')
 
         bottle.response.content_type = 'application/json'
@@ -275,7 +256,6 @@ class Dispatcher():
                 separators=(
                     ',',
                     ' : '))
-
         return result
 
     def pass_json(self, data):
@@ -298,18 +278,21 @@ class Dispatcher():
 # =============================================================================
 
     def root(self):
-        """ Returns root. """
+        """ Returns the root.
+        """
 
         return('MIDAS Dispatcher online.')
-
     # -------------------------------------------------------------------------
 
     def status_nodes(self):
         """
         @api {get} /status/nodes Available nodes
+        @apiVersion 0.3.0
+        @apiPermission none
+        @apiParam {String} name Name of the User.
         @apiGroup Status
         @apiName GetStatusNodes
-        @apiDescription Returns the available nodes in the MIDAS system.
+        @apiDescription Returns the available nodes in the MIDAS network.
 
 
         @apiSuccess {String} address The address of the node
@@ -324,15 +307,15 @@ class Dispatcher():
                              status_online
 
         @apiExample Request status of all nodes
-                    curl -i http://midas_dispatcher:8080/status/nodes
+            http 127.0.0.1:8080/status/nodes
 
         @apiSuccessExample Success-Response:
         HTTP/1.1 200 OK
         {
-            "example_node_one" : {
+            "example_node_a" : {
                 "address" : "tcp://192.168.2.226:5011",
                 "id" : "01",
-                "service" : "example_node_one",
+                "service" : "example_node_a",
                 "status" : "online"
             },
             "example_node_two" : {
@@ -347,9 +330,8 @@ class Dispatcher():
         bottle.response.content_type = 'application/json'
 
         return self.format_json(self.node_addresses)
-        # return self.node_addresses
 
-    # ------------------------------------------------------------------------------
+    # -------------------------------------------------------------------------
 
     def status_metrics(self, node=None):
         """
@@ -362,16 +344,18 @@ class Dispatcher():
                            nodes.
 
         @apiExample Request metrics from all nodes
-                    curl -i http://midas_dispatcher:8080/status/metrics
+            http 127.0.0.1:8080/status/metrics
 
-        @apiExample Request metrics from the node named 'example_node_one'
-                    curl -i http://midas_dispatcher:8080/example_node_one/status/metrics
+        @apiExample Request metrics from the node named 'example_node_a'
+            http 127.0.0.1:8080/example_node_a/status/metrics
 
-        @apiSuccessExample Success-Response:
+        @apiSuccessExample {json} Success-Response:
         HTTP/1.1 200 OK
         {
-            "example_node_one" : {
-                "metric_a" : "Returns the metric A calculated from the data. The function takes the start and stop frequencies as paramters: metric_a(band_start, band_stop).",
+            "example_node_a" : {
+                "metric_a" : "Returns the metric A calculated from the data.
+                              The function takes the start and stop frequencies
+                              as paramters: metric_a(band_start, band_stop).",
                 "metric_b" : "Returns the metric B calculated from the data.",
                 "metric_c" : "Returns the metric C calculated from the data."
             }
@@ -385,8 +369,7 @@ class Dispatcher():
             return self.format_json(self.node_metrics[node])
         else:
             return self.format_json(self.node_metrics)
-
-    # ------------------------------------------------------------------------------
+    # -------------------------------------------------------------------------
 
     def status_data(self, node=None):
         """
@@ -399,16 +382,16 @@ class Dispatcher():
                            nodes.
 
         @apiExample Request data from all nodes
-                    curl -i http://midas_dispatcher:8080/status/data
+            http 127.0.0.1:8080/status/data
 
-        @apiExample Request data from the node named 'example_node_one'
-                    curl -i http://midas_dispatcher:8080/example_node_one/status/data
+        @apiExample Request data from the node named 'example_node_a'
+            http 127.0.0.1:8080/example_node_a/status/data
 
 
         @apiSuccessExample Success-Response:
         HTTP/1.1 200 OK
         {
-            "example_node_one" : {
+            "example_node_a" : {
                 "Ch1" : "First channel",
                 "Ch2" : "Second channel"
             },
@@ -424,8 +407,7 @@ class Dispatcher():
             return self.format_json(self.node_data[node])
         else:
             return self.format_json(self.node_data)
-
-    # ------------------------------------------------------------------------------
+    # -------------------------------------------------------------------------
 
     def status_topics(self, node=None):
         """
@@ -438,15 +420,15 @@ class Dispatcher():
                            nodes.
 
         @apiExample Request topics published from all nodes
-                    curl -i http://midas_dispatcher:8080/status/topics
+            http 127.0.0.1:8080/status/topics
 
-        @apiExample Request topics from the node named 'example_node_one'
-                    curl -i http://midas_dispatcher:8080/example_node_one/status/topics
+        @apiExample Request topics from the node named 'example_node_a'
+            http 127.0.0.1:8080/example_node_a/status/topics
 
         @apiSuccessExample Success-Response:
         HTTP/1.1 200 OK
         {
-            "example_node_one" : {
+            "example_node_a" : {
                 "topic_one" : "a test topic",
                 "topic_two" : "another topic"
             },
@@ -460,7 +442,6 @@ class Dispatcher():
             return self.format_json(self.node_topics[node])
         else:
             return self.format_json(self.node_topics)
-
     # -------------------------------------------------------------------------
 
     def status_publisher(self):
@@ -472,7 +453,7 @@ class Dispatcher():
                         relay messages published by the nodes.
 
         @apiExample Get the dispatcher publisher URL
-                    curl -i http://midas_dispatcher:8080/status/publisher
+            http 127.0.0.1:8080/status/publisher
 
         @apiSuccessExample Success-Response:
         HTTP/1.1 200 OK
@@ -487,8 +468,7 @@ class Dispatcher():
             return self.format_json({'url': self.url_proxy_out})
         else:
             return self.format_json({'error': 'proxy not running'})
-
-    # ------------------------------------------------------------------------------
+    # -------------------------------------------------------------------------
 
     def status_nodeinfo(self, node):
         """
@@ -498,10 +478,11 @@ class Dispatcher():
         @apiDescription Return information for a particular node.
         @apiParam {String} nodename The name of the node.
 
-        @apiExample Request information from the node named 'example_node_one'
-                    curl -i http://midas_dispatcher:8080/example_node_one/status/info
+        @apiExample Request information from the node named 'example_node_a'
+            http 127.0.0.1:8080/example_node_a/status/info
 
         @apiSuccessExample Success-Response:
+        HTTP/1.1 200 OK
         {
             "buffer_full" : 1,
             "buffer_size" : 0.01,
@@ -515,7 +496,7 @@ class Dispatcher():
                 "Ch2"
             ],
             "desc" : "An example node",
-            "name" : "example_node_one",
+            "name" : "example_node_a",
             "primary_node" : true,
             "sampling_rate" : 500
         }
@@ -524,216 +505,221 @@ class Dispatcher():
         if node in self.node_addresses:
             socket_tmp = self.context.socket(zmq.REQ)
             socket_tmp.connect(self.node_addresses[node]['address'])
-            mu.midas_send_message(socket_tmp, 'command', ['get_nodeinfo'])
-            results = mu.midas_receive_reply(socket_tmp)
+            mu.midas_send(socket_tmp, 'command', 'get_nodeinfo')
+            results = socket_tmp.recv()
         else:
             results = {'error': 'node not available'}
 
-        return self.format_json(results)
+        return self.pass_json(results)
+    # -------------------------------------------------------------------------
 
-    # ------------------------------------------------------------------------------
-
-    def get_metric(self, node, metric_names, time):
-        """@api {get} /:nodename/metric/:metric_list/:time_window Request metrics
+    def get_metric(self, node, requests):
+        """@api {get} /:nodename/metric/:requests Request metrics
         @apiGroup Metrics
         @apiName GetMetric @apiDescription Request one or more metrics from a
                                            specific node.
 
         @apiParam {String} nodename The name of the node.
 
-        @apiParam {String} metric_names The metrics to be calculated
-        by the node. Parameters to a metric are separated by colons
-        (:), multiple metrics are separated by semicolons
-        (;). Parameters can be passed to the metrics. The channel name
-        must always be given as the first argument to the
-        metric.Multiple channel names are separated by commas (,) for
-        metrics that use data from multiple channel as input. If the
-        node only receives a data stream with one channel, the channel
-        name can be omitted from the arguments to the metric.
+        @apiParam {String} requests Single metric request (or a list of
+        multiple requests) for the node to calculate. All requests are JSON
+        formatted and multiple simultaneous requests can be placed inside a JSON
+        array, e.g. [request, request, ...]
 
-        @apiParam {Float} time_window The time window of data to be
-        used in the calculation of the metric. All metrics are
-        calculated from the same data and are hence comparable. The
-        time window is composed of two numbers: the first number
-        indicates the starting point of the data in seconds from the
-        present time, and the second number indicates the length of
-        data to be used in seconds. The parts are separated by a colon
-        (:). If the colon and the second number are omitted, all data
-        from the past n seconds are used, where n is the number given
-        as the time window.
+        @apiParam {String} request JSON-formatted metric request. Request
+        parameters are defined as key-value pairs. The "type"-key, followed by
+        the metric name, defines which metric is used. Channels can be specified
+        by "channels"-key, followed by a list of channel names. Time-window of
+        the data is specified using the "time_window"-key, followed by two
+        element array. The time window is composed of two numbers: the first
+        number indicates the starting point of the data in seconds from the
+        present time The second number indicates the length of data segment in
+        seconds. Extra positional arguments of the target metric functions can
+        be given arguments using the "arguments"-key, followed by a list of
+        arguments.
 
-        @apiExample Request one metric without parameters
-                    # Request the metric 'metric_e' from the node
-                    # 'example_node_two'.
-                    # using a time window of length 3 seconds, starting 10
-                    # seconds ago from the present time.
-                    # The metric will be calculated from the channel 'Ch1'
+        @apiExample {curl} Request metric without any extra arguments
+            http 127.0.0.1:8080/example_node_a/metric/'{"type":"metric_a"}'
 
-                    curl -i http://midas_dispatcher:8080/example_node_two/metric/metric_e:Ch1/10:3
+        @apiExample {curl} Request metric using data from specified channel
+            http 127.0.0.1:8080/example_node_a/metric/'{"type":"metric_a", "channels":["Ch1"]}'
 
-
-        @apiExample Request one metric specifying channel name
-                    # Request the metric 'metric_b' from the node 'example_node_one'.
-                    # using a time window of length 3 seconds, starting 10 seconds ago from the present time.
-                    # The metric will be calculated from the channel Ch2
-
-                    curl -i http://midas_dispatcher:8080/example_node_one/metric/metric_b:Ch2/10:3
-
-        @apiExample Request the same metric calculated from different channels
-                    # Request the metric 'metric_b' from the node 'example_node_one'.
-                    # using a time window of length 3 seconds, starting 10 seconds ago from the present time.
-                    # The metric will be calculated from the channels Ch1 and Ch2.
-
-                    curl -i http://midas_dispatcher:8080/example_node_one/metric/metric_b:Ch1;metric_b:Ch2/10:3
+        @apiExample Request metric calculated using data from multiple channels
+            http 127.0.0.1:8080/example_node_a/metric/'{"type":"metric_a", "channels":["Ch1", "Ch2"]}'
 
         @apiExample Request one metric with extra parameters
-                    # Request the metric 'metric_a' from the node 'example_node_one' with parameters 2.5 and 3.7,
-                    # using a time window of length 3 seconds, starting 10 seconds ago from the present time.
-                    # The metric will be calculated from the channel Ch1
-
-                    curl -i http://midas_dispatcher:8080/example_node_one/metric/metric_a:Ch2:2.5:3.7/10:3
+            http 127.0.0.1:8080/example_node_a/metric/'{"type":"metric_a", "arguments":[12, 0.05]}'
 
         @apiExample Request multiple metrics
-                    # Request the metrics 'metric_b' and 'metric_c' from the node 'example_node_one' without parameters.
-                    # using a time window of length 3 seconds, starting 10 seconds ago from the present time.
+            url -i 127.0.0.1:8080/example_node_a/metric/'[{"type":"metric_a"}, {"type":"metric_b"}]'
 
-                    curl -i http://midas_dispatcher:8080/example_node_one/metric/metric_b:Ch2;metric_c:Ch1/10:3
+        @apiExample Request multiple metrics with differing arguments
+            http 127.0.0.1:8080/example_node_a/metric/'[{"type":"metric_a", "channels":["Ch1"]}, {"type":"metric_b", "channels":["Ch2"], "arguments":[1.5, 128]}]'
 
-        @apiExample Request multiple metrics metrics with and without parameters
-                    # Request the metrics 'metric_a' and 'metric_b' from the node 'example_node_one' with parameters
-                    # for metric_a and no parameters for metric_b,
-                    # using a time window of length 3 seconds, starting 10 seconds ago from the present time.
-
-                    curl -i http://midas_dispatcher:8080/example_node_one/metric/metric_a:Ch1:2.5:3.7;metric_b:Ch2/10:3
-
-        @apiExample Specifying the time window
-                    # Request the metric 'metric_a' from the node 'example_node_one' with parameters 1.3 and 2.9
-                    # using all data from 7 seconds ago to the present time
-
-                    curl -i http://midas_dispatcher:8080/example_node_one/metric/metric_a:Ch2:1.3:2.9/7
-
-                    # This call is equivalent
-                    curl -i http://midas_dispatcher:8080/example_node_one/metric/metric_a:Ch2:1.3:2.9/7:7
-
-
-
+        @apiExample Request metric from specified channel and time-window
+            http 127.0.0.1:8080/example_node_a/metric/'{"type":"metric_a", "channels":["Ch1"], "time-window":[10, 5]}'
 
         @apiSuccessExample Success-Response:
-        {
-            "metric_a_Ch1_2.5_3.7":0.09886096999680793,
-            "metric_b_Ch2":0.9123432571384757
-        }
+        HTTP/1.1 200 OK
+        [
+            {
+                "channels": ["Ch1"],
+                "return": 81.5,
+                "type": "metric_a"
+            }
+        ]
         """
 
         if node in self.node_addresses:
             socket_tmp = self.context.socket(zmq.REQ)
             socket_tmp.connect(self.node_addresses[node]['address'])
 
-            metric_names = mu.parse_metric(metric_names)
-            request = metric_names + [str(time)]
+            mu.midas_send(socket_tmp, 'metric', requests)
+            result = socket_tmp.recv_string()
 
-            mu.midas_send_message(socket_tmp, 'metric', request)
-            results = mu.midas_receive_reply(socket_tmp)
-
-            return self.pass_json(results)
+            return self.pass_json(result)
         else:
             return self.format_json({'error': 'node not available'})
-
     # -------------------------------------------------------------------------
 
-    def get_data(self, node, data_names, time):
+    def get_data(self, node, requests):
         """
-        @api {get} /:nodename/data/:channel_list/:time_window Request data
+        @api {get} /:nodename/data/:requests Request data
         @apiGroup Data
         @apiName GetData Request
         @apiDescription Return data from the nodes.
         @apiParam {String} nodename The name of the node.
 
-        @apiParam {String} channel_list The data channels to be
-        returned. Multiple channels are separate by semicolons (;).
+        @apiParam {String} requests Single data requests (or a list of multiple
+        requests) to be retrieved from the node. All requests are JSON formatted
+        and multiple simultaneous requests can be placed inside a JSON array,
+        e.g. [request, request, ...]
 
-        @apiParam {Float} time_window The time window specifying the
-        amount of data to be returned. The time window is composed of
-        two numbers: the first number indicates the starting point of
-        the data in seconds from the present time, and the second
-        number indicates the length of data to be used in seconds. The
-        parts are separated by a colon (:). If the colon and the
-        second number are omitted, all data from the past n seconds
-        are used, where n is the number given as the time window.
+        @apiParam {String} request JSON-formatted metric request. Request
+        parameters are defined as key-value pairs. Channels can be specified
+        by "channels"-key, followed by a list of channel names. Time-window of
+        the data is specified using the "time_window"-key, followed by two
+        element array. The time window is composed of two numbers: the first
+        number indicates the starting point of the data in seconds from the
+        present time The second number indicates the length of data segment in
+        seconds.
 
-        @apiExample Request the past 3 seconds of data from channel Ch1 from the
-                    node named 'example_node_one'
+        @apiExample Request the past 3 seconds of data from channel Ch1
+            http 127.0.0.1:8080/example_node_a/data/'{"channels":["Ch1"], "time_window":[3, 3]}'
 
-                    curl -i http://midas_dispatcher:8080/example_node_one/data/Ch1/3
-
-        @apiExample Request data from channels Ch1 and Ch2 from node named
-                    'example_node_one'. The data should be returned
-                    for a 2-second time window starting 5 seconds ago.
-
-                    curl -i http://midas_dispatcher:8080/example_node_one/data/Ch1;Ch2/3:1
+        @apiExample Request all data from channels Ch1 and Ch2
+            http 127.0.0.1:8080/example_node_a/data/'{"channels":["Ch1", "Ch2"]}'
 
 
         @apiSuccessExample Success-Response:
-        {
-            "Ch1":{
-                "data":[
-                    24.0,
-                    25.0,
-                    26.0,
-                    27.0
+        HTTP/1.1 200 OK
+        [
+            {
+                "channels": [
+                    "Ch1",
+                    "Ch2"
                 ],
-                "time":[
-                    0.008341878999999608,
-                    0.006259979998503695,
-                    0.004175565998593811,
-                    0.002090279998810729
-                ]
-            },
-            "Ch2":{
-                "data":[
-                    24.0,
-                    25.0,
-                    26.0,
-                    27.0
-                ],
-                "time":[
-                    0.008341878999999608,
-                    0.006259979998503695,
-                    0.004175565998593811,
-                    0.002090279998810729
+                "return": {
+                    "Ch1": {
+                        "data": [
+                            43.0,
+                            44.0
+                        ],
+                        "time": [
+                            2.0009971640010917,
+                            1.0003105989999312
+                        ]
+                    },
+                    "Ch2": {
+                        "data": [
+                            43.0,
+                            44.0
+                        ],
+                        "time": [
+                            2.0009971640010917,
+                            1.0003105989999312
+                        ]
+                    }
+                },
+                "time_window": [
+                    3
                 ]
             }
-        }
+        ]
+
         """
 
         if node in self.node_addresses:
             socket_tmp = self.context.socket(zmq.REQ)
             socket_tmp.connect(self.node_addresses[node]['address'])
 
-            data_names = mu.parse_metric(data_names)
-            request = data_names + [str(time)]
-
-            mu.midas_send_message(socket_tmp, 'data', request)
-            data = mu.midas_receive_reply(socket_tmp)
+            mu.midas_send(socket_tmp, 'data', requests)
+            data = socket_tmp.recv_string()
             return self.pass_json(data)
         else:
             return self.format_json({node: 'not available'})
 
-    # -------------------------------------------------------------------------
-    # Test function
-    # -------------------------------------------------------------------------
     def get_test(self):
-        """ Test function. """
+        """
+        @api {get} /test Test Dispatcher
+        @apiGroup Status
+        @apiName TestDispatcher
+        @apiDescription Dispatcher test function, returns a random number.
 
+        @apiExample Test dispatcher
+            http 127.0.0.1:8080/test
+
+        @apiSuccessExample Success-Response:
+        HTTP/1.1 200 OK
+        {
+            "test": 0.09173727416497413
+        }
+        """
         x = random.uniform(0, 1)
-
         return self.format_json({'test': x})
 
-    # -------------------------------------------------------------------------
-    # Minimalist user interface for the node
-    # -------------------------------------------------------------------------
+    def ping_node(self, node, num):
+        """
+        @api {get} /:nodename/pings/:n Ping node
+        @apiGroup Status
+        @apiName PingNode
+        @apiDescription Ping the specified node. Returns round-trip-times for
+                        each ping.
+        @apiParam {String} nodename The name of the node.
+        @apiParam {Int} n number of ping repetitions
+
+        @apiExample Ping target node 5 times
+            http 127.0.0.1:8080/example_node_a/ping/5
+
+        @apiSuccessExample Success-Response:
+        HTTP/1.1 200 OK
+        {
+            "example_node_a_RTT": [
+                0.0009348392486572266,
+                0.0008633136749267578,
+                0.0005664825439453125,
+                0.0006177425384521484,
+                0.0005941390991210938
+            ]
+        }
+        """
+        if node in self.node_addresses:
+            latencies = []
+            for _ in range(int(num)):
+                time_sent = time.time()
+                socket_tmp = self.context.socket(zmq.REQ)
+                socket_tmp.connect(self.node_addresses[node]['address'])
+                mu.midas_send(socket_tmp, 'ping', "ping")
+                ping = socket_tmp.recv_string()
+                latencies.append(time.time() - time_sent - float(ping))
+            return self.format_json({node + "_RTT": latencies})
+
+        else:
+            return self.format_json({node: 'not available'})
+
     def show_ui(self):
-        """ Show a minimal user interface. """
+        """ Show a minimal user interface.
+        """
 
         time.sleep(1)
 
@@ -742,9 +728,6 @@ class Dispatcher():
             if tmp == "q":
                 break
         self.stop()
-    # -------------------------------------------------------------------------
-    # Start
-    # -------------------------------------------------------------------------
 
     def start(self):
         """ Starts running the dispatcher server. Routes are also configured
@@ -768,11 +751,11 @@ class Dispatcher():
         # Connect routes
         bottle.route('/', method="GET")(self.root)
         bottle.route(
-            '/<node>/metric/<metric_names>/<time>',
+            '/<node>/metric/<requests>',
             method="GET")(
             self.get_metric)
         bottle.route(
-            '/<node>/data/<data_names>/<time>',
+            '/<node>/data/<requests>',
             method="GET")(
             self.get_data)
 
@@ -797,6 +780,9 @@ class Dispatcher():
         # Test method
         bottle.route('/test', method="GET")(self.get_test)
 
+        # Ping method
+        bottle.route('/<node>/ping/<num>', method="GET")(self.ping_node)
+
         # Thread for the UI
         self.ui = threading.Thread(target=self.show_ui)
         self.ui.start()
@@ -809,9 +795,6 @@ class Dispatcher():
             port=self.port,
             threads=self.n_threads)
 
-    # -------------------------------------------------------------------------
-    # Stop
-    # -------------------------------------------------------------------------
     def stop(self):
         print("Stopping dispatcher")
         self.run_state = False
@@ -822,14 +805,12 @@ class Dispatcher():
             self.psproxy_watchdog.join()
 
         os._exit(1)
+
 # -----------------------------------------------------------------------------
 # Run the dispatcher if started from the command line
 # -----------------------------------------------------------------------------
-
 if __name__ == "__main__":
     dp = mu.midas_parse_config(Dispatcher, sys.argv)
-
     if dp is not None:
         dp.start()
-
-# ------------------------------------------------------------------------------
+# -----------------------------------------------------------------------------

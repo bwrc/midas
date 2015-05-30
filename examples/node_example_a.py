@@ -3,9 +3,7 @@
 import sys
 import time
 import numpy as np
-
-from midas.node import BaseNode
-from midas import pylsl_python3 as lsl
+from midas.node import BaseNode, lsl
 from midas import utilities as mu
 
 
@@ -21,8 +19,8 @@ class NodeExampleA(BaseNode):
         # Specify all metric-functions by adding them to the
         # metric_functions-list. This makes them visible to dispatcher.
         self.metric_functions.append(self.metric_a)
+        self.metric_functions.append(self.test)
         self.metric_functions.append(metric_b)
-        # Similarly append all processes to the process_list
         self.process_list.append(self.process_x)
 
     # Metric function can be defined as class methods so that they can
@@ -32,15 +30,36 @@ class NodeExampleA(BaseNode):
         a = np.mean(x['data'][0])
         return a
 
+    def test(self, x, p1=0, p2=0):
+        """ Testing function that echoes inputs it gets"""
+        print('>>>>>>>>>>>')
+        print("\tNumber of channels=%d" % len(x['data']))
+        for idx, ch in enumerate(x['data']):
+            print("\t\tCh%d: %d samples" % (idx, len(ch)))
+        print("\tArguments:")
+        print("\t\targ1=%s" % p1)
+        print("\t\targ2=%s" % p2)
+        print("\tData:")
+        for d in x['data']:
+            print("\t\t" + str(d))
+        print("\tTime:")
+        for t in x['time']:
+            print("\t\t" + str(t))
+        return 1
+
     # Processes are class methods that loop while the node is running. A process
     # can be used to calculate and push new values into secondary data channels.
     def process_x(self):
         """ Automatically calculates values for two secondary channels. """
         # Process loops while the node is running. Variable run_state.value is
         # the poison-pill of the node.
+        channel_name = self.channel_names[0]
         while self.run_state.value:
-            # Pull 10 seconds of 'primary' data
-            data, times = self.data_snapshot([10, 10])
+            # Snapshot and unpack 10 seconds of 'primary' data from channel 0
+            snapshot = self.snapshot_data([channel_name])
+            data, times = self.unpack_snapshot(snapshot,
+                                               [channel_name],
+                                               [10, 10])
             # Calculate mean and standard deviation of this 10 second chunk from
             # channel 0
             if data[0]:

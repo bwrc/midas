@@ -3,7 +3,6 @@
 import sys
 import numpy as np
 import scipy.signal
-
 from midas.node import BaseNode
 from midas import utilities as mu
 

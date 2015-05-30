@@ -7,7 +7,7 @@ from midas.node import lsl
 # EEG.
 
 # Set sampling rate and sample interval
-fs = 500.0
+fs = 1.0
 ts = 1.0 / fs
 
 # Create a LSL stream named 'Dummy' with 2 channels of random data

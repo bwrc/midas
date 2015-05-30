@@ -11,20 +11,15 @@
 #
 # Please see the file LICENSE for details.
 
+import sys
 import zmq
 import time
-import socket
-import configparser
-import os.path
-import sys
-import json
-from multiprocessing import Value, Lock
-import threading
 import select
-
-from . import pylsl_python3 as lsl
-
-# =============================================================================
+import socket
+import os.path
+import threading
+import configparser
+from multiprocessing import Lock, Value
 
 
 class Beacon(object):
@@ -38,9 +33,7 @@ class Beacon(object):
                  ip=None,
                  port='',
                  protocol='tcp',
-                 # description        = '',
                  status='',
-                 # status_description = '',
                  port_broadcast=5670,
                  interval=5):
         """ Create the beacon and set some properties, but do not start it. """
@@ -51,14 +44,11 @@ class Beacon(object):
         self.ip = ip
         self.port = port
         self.protocol = protocol
-        # self.description        = description
         self.status = status
-        # self.status_description = status_description
         self.is_running = False
         self.data = ''
         self.port_broadcast = port_broadcast
         self.interval = interval
-
     # -------------------------------------------------------------------------
 
     def start(self):
@@ -71,7 +61,6 @@ class Beacon(object):
         self.is_running = True
         t = threading.Thread(target=self.broadcast)
         t.start()
-
     # -------------------------------------------------------------------------
 
     def broadcast(self):
@@ -85,14 +74,12 @@ class Beacon(object):
                 time.sleep(self.interval)
             except OSError:
                 print('Broadcast error in beacon.')
-
     # -------------------------------------------------------------------------
 
     def stop(self):
         """ Stop the beacon. """
         if self.is_running:
             self.is_running = False
-
     # -------------------------------------------------------------------------
 
     def update_data(self):
@@ -106,19 +93,7 @@ class Beacon(object):
                          url_node,
                          str(self.status)
                          ])
-
-        # data = ';'.join(['midas',
-        #                 str(self.name),
-        #                 str(self.type),
-        #                 str(self.id),
-        #                 url_node,
-        #                 str(self.description),
-        #                 str(self.status),
-        #                 str(self.status_description),
-        # ])
-
         self.data = str.encode(data)
-
     # -------------------------------------------------------------------------
 
     def set_status(self, status):
@@ -127,11 +102,32 @@ class Beacon(object):
             broadcast.
         """
         self.status = status
-        # self.status_description = status_description
 
         if self.is_running:
             self.stop()
             self.start()
+
+
+class DataState(object):
+
+    """ Thread-safe boolean that can, e.g., be used to keep track of whether
+        there is new data or not
+    """
+
+    def __init__(self, initial_state=0):
+        self.state = Value('i', initial_state)
+        self.lock = Lock()
+
+    def setstate(self, val):
+        with self.lock:
+            self.state.value = val
+
+    def flipstate(self):
+        with self.lock:
+            self.state.value ^= True
+
+    def getstate(self):
+        return(self.state.value)
 
 # -----------------------------------------------------------------------------
 # Service discovery
@@ -141,9 +137,17 @@ class Beacon(object):
 def discover_all_nodes(timeout=10, port_broadcast=5670):
     """ Discover all MIDAS nodes and return them as a dictionary."""
 
-    s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-    s.bind(('', port_broadcast))
-    s.setblocking(0)
+    # Loop until the socket is free.
+    # This is needed in order to avoid conflicts when multiple dispatchers
+    # are used on the same host.
+    while True:
+        try:
+            s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+            s.bind(('', port_broadcast))
+            s.setblocking(0)
+            break
+        except OSError:
+            pass
 
     buffersize = 1024
     t_start = time.time()
@@ -162,8 +166,9 @@ def discover_all_nodes(timeout=10, port_broadcast=5670):
                     tmp_list.append(message)
                     node_dict[message['name']] = message
 
-    return node_dict
+    s.close()
 
+    return node_dict
 # -----------------------------------------------------------------------------
 
 
@@ -180,7 +185,6 @@ def validate_message(message):
         result = dict(zip(k, message[1:]))
 
     return result
-
 # -----------------------------------------------------------------------------
 
 
@@ -210,7 +214,6 @@ def filter_nodes(node_dict, f={}):
         matching_nodes = node_dict
 
     return matching_nodes
-
 # -----------------------------------------------------------------------------
 
 
@@ -223,128 +226,23 @@ def make_string(d, key_list):
 # -----------------------------------------------------------------------------
 
 
-def midas_send_message(socket, message_type, request):
-    """ Send a message using the MIDAS Messaging Protocol.
-
-    Args:
-       socket: the ZMQ socket to use
-       message_type: a string indicating the message type:
-            'metric'
-            'data'
-            'command'
-       request: an array containing the request for the message type:
-            'metric': an array, containing the metrics as strings,
-                      and the time window as a string as the last item.
-            'index':  an array, containing the indices as strings,
-                      and the time window as a string as the last item.
-            'data':   an array, containing the data type as strings,
-                      and the time window as a string as the last item.
-            'command': a command and parameters for the receiving MIDAS node
-    """
-
-    socket.send_string(message_type, zmq.SNDMORE)
-
-    for m in request[:-1]:
-        socket.send_string(m, zmq.SNDMORE)
-    socket.send_string(request[-1])
-
-# -----------------------------------------------------------------------------
-
-
-def midas_receive_message(socket):
-    """ Receive a message using the MIDAS Messaging Protocol.
-
-    Args:
-       socket: the ZMQ socket to use
-
-    Returns:
-       the message as an array
-    """
-
-    # receive requests
-    more = True
-    message = {}
-    request = []
-
-    message['address'] = socket.recv()
-    empty = socket.recv()
-    message['type'] = socket.recv_string()
-
-    while more:
-        request.append(str(socket.recv_string()))
-        more = socket.getsockopt(zmq.RCVMORE)
-
-    if message['type'] in ['metric', 'data']:
-        if ':' in request[-1]:
-            tmp = request[-1].split(':')
-            tmp = [float(i) for i in tmp]
-            if tmp[1] > tmp[0]:
-                tmp[1] = tmp[0]
-            timewindow = [tmp[0], tmp[1]]
-        else:
-            tmp = float(request[-1])
-            timewindow = [float(tmp), float(tmp)]
-
-        message['parameters'] = request[:-1]
-        message['timewindow'] = timewindow
-
-    elif message['type'] == 'command':
-        message['command'] = request
-
-    return message
-
-
-# -----------------------------------------------------------------------------
-# Replies
-# -----------------------------------------------------------------------------
-def midas_send_reply(socket, address, data):
-    """ Send a list of data arrays using JSON
-
-    Args:
-       socket: the ZMQ socket to use
-       data: a dictionary with the data vectors
-    """
-
-    socket.send(address, zmq.SNDMORE)
-    socket.send(b"", zmq.SNDMORE)
-    socket.send_string(
-        json.dumps(
-            data,
-            sort_keys=True,
-            indent=4,
-            separators=(
-                ',',
-                ':')))
-
-# -----------------------------------------------------------------------------
-
-
-def midas_receive_reply(socket, deserialize=False):
-    result = socket.recv_string()
-
-    if deserialize:
-        return json.loads(result)
+def midas_send(socket, message_type, message, address=None):
+    """ Temporary messasing functions for debuggings. """
+    if address:
+        socket.send(address, zmq.SNDMORE)
+        socket.send(b"", zmq.SNDMORE)
+        socket.send_string(message)
     else:
-        return result
+        socket.send_string(message_type, zmq.SNDMORE)
+        socket.send_string(message)
 
-# -----------------------------------------------------------------------------
 
-
-def parse_metric(x):
-    """ Split a semicolon-separated string, split it
-        a list.
-    Args:
-       x: a string with each component separated by semicolons
-
-    Returns:
-       a list
-    """
-
-    if ';' in x:
-        return x.split(';')
-    else:
-        return [x]
-
+def midas_recv(socket):
+    address = socket.recv()
+    socket.recv()  # Empty sequence
+    msg_type = socket.recv_string()
+    message = socket.recv_string()
+    return address, msg_type, message
 # -----------------------------------------------------------------------------
 
 
@@ -360,7 +258,6 @@ def get_ip():
         ip = '127.0.0.1'
 
     return(ip)
-
 # -----------------------------------------------------------------------------
 
 
@@ -396,7 +293,6 @@ def midas_parse_config(nodeclass, *args):
 
     # Create the node
     return nodeclass(tmp)
-
 # -----------------------------------------------------------------------------
 
 
@@ -417,34 +313,6 @@ def parse_config_to_dict(cfg_file, section):
     else:
         print("Section '%s' not found in file %s!" % (section, cfg_file))
         return None
-
-# -----------------------------------------------------------------------------
-
-
-class DataState(object):
-
-    """ Thread-safe boolean that can, e.g., be used to keep track of whether
-        there is new data or not
-    """
-
-    def __init__(self, initial_state=0):
-        self.state = Value('i', initial_state)
-        self.lock = Lock()
-
-    def setstate(self, val):
-        with self.lock:
-            self.state.value = val
-
-    def flipstate(self):
-        with self.lock:
-            if self.state.value == 0:
-                self.state.value = 1
-            elif self.state.value == 1:
-                self.state.value = 0
-
-    def getstate(self):
-        return(self.state.value)
-
 # -----------------------------------------------------------------------------
 
 
@@ -452,7 +320,6 @@ def python_version():
     """ Return the major Python version (2 or 3) """
 
     return(float(sys.version[0]))
-
 # -----------------------------------------------------------------------------
 
 
@@ -460,7 +327,6 @@ def make_url(ip, port, protocol='tcp'):
     """ Return a URL """
 
     return protocol + '://' + ip + ':' + str(port)
-
 # -----------------------------------------------------------------------------
 
 
@@ -468,7 +334,6 @@ def str2bool(x):
     """ Convert a string to a boolean. """
 
     return x.lower() in ("true", "1")
-
 # -----------------------------------------------------------------------------
 
 
@@ -478,92 +343,6 @@ def listify(config, key, sep=','):
     """
 
     return [i.strip() for i in config[key].split(sep)]
-
-# -----------------------------------------------------------------------------
-
-
-def get_channel_index(channel_list, channel_name):
-    """ Return the index of one or more channels in the channel index list.
-
-    Args:
-         channel_list  : a list of all channels (string[])
-         channel_names : a string or list of strings with a channel name,
-                         the index of which in the channel_list one wants to get
-    """
-
-    if isinstance(channel_name, str):
-        channel_index = channel_list.index(channel_name)
-    elif isinstance(channel_name, list):
-        channel_index = []
-        for cn in channel_name:
-            channel_index.append(channel_list.index(cn))
-
-    return channel_index
-
-
-# -------------------------------------------------------------------------------
-
-def get_channel_data(
-        channels,
-        channel_data_primary,
-        channel_data_secondary,
-        channel_names_primary,
-        channel_names_secondary):
-    """ Return channel data.
-        Return the data corresponding to the strings in channel_name, indexed
-        according to channel_list.
-
-    Args:
-         channels                : list of channel names to return
-         channel_data            : array of arrays containing the primary
-                                   channel data
-         channel_data_secondary  : array of arrays containing the secondary
-                                   channel data
-         channel_names           : list with all the primary channel names
-         channel_names_secondary : list with all the secondary channel names
-    """
-
-    data = []
-    names = []
-
-    for c in channels:
-        if channel_data_primary is not None:
-            if c in channel_names_primary:
-                ci = get_channel_index(channel_names_primary, c)
-                data.append(channel_data_primary[ci])
-                names.append(c)
-
-        if channel_data_secondary is not None:
-            if c in channel_names_secondary:
-                ci = get_channel_index(channel_names_secondary, c)
-                data.append(channel_data_secondary[ci])
-                names.append(c)
-
-    return {"data": data, "names": names}
-
-
-# -------------------------------------------------------------------------------
-
-def get_index_vector(N, buffer_full, writepointer):
-    """ Create an index vector that can be used to extract data in
-        the correct order from a circular buffer.
-
-    Args:
-        N            : the size of the buffer
-        buffer_full  : is the buffer full, i.e., are elements being overwritten
-                       (Boolean)
-        writepointer : the index where the next element will be written
-    """
-
-    if (0 == buffer_full):
-        iv = range(writepointer)
-    else:
-        iv = [0] * N
-        for i in range(N):
-            iv[i] = (writepointer + i) % N
-
-    return iv
-
 # -----------------------------------------------------------------------------
 
 
@@ -590,41 +369,6 @@ def find_range(array, win):
             i1 = idx
 
     return i0, i1
-
-
-# -----------------------------------------------------------------------------
-
-def resolve_lsl_stream_name_type(stream_name, stream_type):
-    """ Resolve an LSL stream by name and signal type.
-
-    Args:
-        stream_name: <string> the name of the stream
-        stream_type: <string> the signal type of the stream
-    """
-
-    print('Resolving stream ...')
-    streams = lsl.resolve_streams()
-    for s in streams:
-        if (s.name() == stream_name) and (s.type() == stream_type):
-            print('\tDone')
-            return(s)
-
-# -----------------------------------------------------------------------------
-
-
-def create_lsl_inlet(stream, buffer_length):
-    """ Create an LSL stream inlet from an LSL stream object.
-
-    Args:
-        stream: an LSL stream object (e.g. from resolve_lsl_stream_name_type)
-        buffer_length: the size of the buffering used for the LSL stream
-
-    """
-    print('Trying to connect to the stream ...')
-    inlet = lsl.StreamInlet(stream, max_buflen=buffer_length)
-    print('\tDone')
-    return(inlet)
-
 # -----------------------------------------------------------------------------
 
 
@@ -752,16 +496,4 @@ def LRU_queue_broker(url_frontend, url_backend, NBR_WORKERS, run_state):
     frontend.close()
     backend.close()
     context.term()
-
-
-# -----------------------------------------------------------------------------
-# Do nothing if we run this module
-# -----------------------------------------------------------------------------
-
-def main():
-    pass
-
-if __name__ == '__main__':
-    main()
-
 # -----------------------------------------------------------------------------

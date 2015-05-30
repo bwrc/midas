@@ -1,3 +1,10 @@
+1.0.4 (30.05.2015)
+==================
+* API for metric and data requests changed to JSON-format
+* Automatic discovery of nodes optimized
+* Configuration requirements of nodes relaxed
+* Metrics from secondary nodes can now be requested without specifying data
+
 1.0.3 (30.09.2014)
 ==================
 * Removed generate_metric_list-call from nodes and moved it to BaseNode
