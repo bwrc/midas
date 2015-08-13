@@ -1,3 +1,7 @@
+1.1.0 (13.08.2015)
+==================
+* Bundled lsl binaries replaced with pylsl-library
+
 1.0.4 (30.05.2015)
 ==================
 * API for metric and data requests changed to JSON-format
