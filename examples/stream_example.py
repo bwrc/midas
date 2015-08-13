@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 
 import time
-from midas.node import lsl
+import pylsl as lsl
 
 # Starts up a two channel "dummy" LSL stream that claims to be 500 Hz sampled
 # EEG.
