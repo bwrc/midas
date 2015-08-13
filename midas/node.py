@@ -18,7 +18,7 @@ import json
 import inspect
 import multiprocessing as mp
 from . import utilities as mu
-from . import pylsl_python3 as lsl
+import pylsl as lsl
 
 
 class BaseNode(object):

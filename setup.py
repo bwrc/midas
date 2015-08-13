@@ -8,12 +8,5 @@ setup(name='midas',
       url='http://github.io/FIOH-BWRC/midas',
       license='MIT',
       packages=['midas'],
-      package_dir = {'midas': 'midas'},
-      package_data={'midas' : ['midas/liblsl32.dll','midas/liblsl32.dylib','midas/liblsl64.dll', 'midas/liblsl64.dylib', 'midas/liblsl64.so']},
-      include_package_data=True,
-
-
-)
-
-
-
+      package_dir={'midas': 'midas'},
+      include_package_data=False)
