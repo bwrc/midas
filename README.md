@@ -14,7 +14,7 @@ network. For practical examples please check out the
 
 Installation (pip3 if your system uses Python 2.7 by default)
 ------------
-	pip install bottle PyZMQ Waitress
+	pip install bottle PyZMQ Waitress pylsl
 	pip install git+https://github.com/bwrc/midas
 
 License information
