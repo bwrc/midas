@@ -10,7 +10,7 @@ setup(name='midas',
       packages=['midas'],
       package_dir = {'midas': 'midas'},
       package_data={'midas' : []},
-      include_package_data=True,
+      include_package_data=False,
 
 
 )
