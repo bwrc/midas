@@ -15,7 +15,8 @@ network. For practical examples please check out the
 Installation 
 ------------
 MIDAS requires Python 3. Python 3 is your default, use the pip command and otherwise pip3 to ensure that Python 3 is used.
-	pip install git+https://github.com/bwrc/midas
+
+      pip install git+https://github.com/bwrc/midas
 
 License information
 -------------------
