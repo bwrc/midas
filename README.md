@@ -12,9 +12,9 @@ This repository only contains the core library used to setup a MIDAS
 network. For practical examples please check out the
 [MIDAS-nodes](https://github.com/bwrc/midas-nodes/) repository.
 
-Installation (pip3 if your system uses Python 2.7 by default)
+Installation 
 ------------
-	pip install bottle PyZMQ Waitress pylsl
+MIDAS requires Python 3. Python 3 is your default, use the pip command and otherwise pip3 to ensure that Python 3 is used.
 	pip install git+https://github.com/bwrc/midas
 
 License information
