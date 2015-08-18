@@ -806,13 +806,13 @@ class Dispatcher():
 
         os._exit(1)
 
-    def run_from_cli():
-        """
-        Define a function to be used as an entry point for setup.py.
-        """
-        dp = mu.midas_parse_config(Dispatcher, sys.argv)
-        if dp is not None:
-            dp.start()
+def run_from_cli():
+    """
+    Define a function to be used as an entry point for setup.py.
+    """
+    dp = mu.midas_parse_config(Dispatcher, sys.argv)
+    if dp is not None:
+        dp.start()
 
 # -----------------------------------------------------------------------------
 # Run the dispatcher if started from the command line
