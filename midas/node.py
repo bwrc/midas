@@ -342,6 +342,8 @@ class BaseNode(object):
             # is the buffer full
             if (0 == self.buffer_full.value) and (i >= self.buffer_size):
                 self.buffer_full.value = 1
+        # Ending run, clear inlet
+        inlet.close_stream()
 
     # -------------------------------------------------------------------------
     # Publish messages that are placed in the message queue
