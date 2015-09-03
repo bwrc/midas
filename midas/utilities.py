@@ -71,9 +71,9 @@ class Beacon(object):
         while self.is_running:
             try:
                 s.sendto(self.data, ('<broadcast>', self.port_broadcast))
-                time.sleep(self.interval)
             except OSError:
                 print('Broadcast error in beacon.')
+            time.sleep(self.interval)
     # -------------------------------------------------------------------------
 
     def stop(self):
