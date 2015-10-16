@@ -860,13 +860,11 @@ class BaseNode(object):
             metric_pointers     : dict with function names as key and function
                                   pointer as value
         """
-        self.metric_names = [m.__name__ for m in self.metric_functions]
-        self.metric_descriptions = dict(
-            zip(self.metric_names,
-                [m.__doc__.split('\n')[0].strip()
-                 for m in self.metric_functions]))
-        self.metric_pointers = dict(
-            zip(self.metric_names, self.metric_functions))
+        self.metric_names = [func.__name__ for func in self.metric_functions]
+        docs = [func.__doc__ for func in self.metric_functions]
+        self.metric_descriptions = dict(zip(self.metric_names, docs))
+        self.metric_pointers = dict(zip(self.metric_names,
+                                        self.metric_functions))
 
     def generate_nodeinfo(self):
         """ Stores all node information in a dict """
