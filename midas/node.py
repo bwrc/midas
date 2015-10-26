@@ -876,7 +876,7 @@ class BaseNode(object):
         self.metric_pointers = dict(zip(self.metric_names,
                                         self.metric_functions))
         # Finally check if each metric function has at least one argument
-        for metric in self.metric_pointers:
+        for metric in self.metric_functions:
             if not check_num_args(metric):
                 raise AttributeError('Metric function has no arguments')
 
