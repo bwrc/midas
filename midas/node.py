@@ -860,11 +860,25 @@ class BaseNode(object):
             metric_pointers     : dict with function names as key and function
                                   pointer as value
         """
+
+        def check_num_args(fun_handle):
+            n_args = len(inspect.getargspec(fun_handle).args)
+            if inspect.ismethod(fun_handle) and n_args >= 2:
+                return True
+            elif not inspect.ismethod(fun_handle) and n_args >= 1:
+                return True
+            else:
+                return False
+
         self.metric_names = [func.__name__ for func in self.metric_functions]
         docs = [func.__doc__ for func in self.metric_functions]
         self.metric_descriptions = dict(zip(self.metric_names, docs))
         self.metric_pointers = dict(zip(self.metric_names,
                                         self.metric_functions))
+        # Finally check if each metric function has at least one argument
+        for metric in self.metric_pointers:
+            if not check_num_args(metric):
+                raise AttributeError('Metric function has no arguments')
 
     def generate_nodeinfo(self):
         """ Stores all node information in a dict """
