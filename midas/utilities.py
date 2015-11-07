@@ -65,14 +65,17 @@ class Beacon(object):
 
     def broadcast(self):
         s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-        s.bind(('', 0))
-        s.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
+        #s.bind(('', 0))
+        #s.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
 
+        target ='<broadcast>'
         while self.is_running:
             try:
-                s.sendto(self.data, ('<broadcast>', self.port_broadcast))
+                s.sendto(self.data, (target, self.port_broadcast))
             except OSError:
-                print('Broadcast error in beacon.')
+                print('Switching to localhost')
+                target = 'localhost'
+                #print('Broadcast error in beacon.')
             time.sleep(self.interval)
     # -------------------------------------------------------------------------
 
