@@ -65,8 +65,8 @@ class Beacon(object):
 
     def broadcast(self):
         s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-        #s.bind(('', 0))
-        #s.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
+        s.bind(('', 0))
+        s.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
 
         target ='<broadcast>'
         while self.is_running:
