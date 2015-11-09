@@ -73,9 +73,8 @@ class Beacon(object):
             try:
                 s.sendto(self.data, (target, self.port_broadcast))
             except OSError:
-                print('Switching to localhost')
+                print('Broadcast error in beacon. Switching to localhost.')
                 target = 'localhost'
-                #print('Broadcast error in beacon.')
             time.sleep(self.interval)
     # -------------------------------------------------------------------------
 
