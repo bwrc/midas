@@ -187,7 +187,7 @@ class BaseNode(object):
 
             if self.channel_descriptions is None:
                 self.channel_descriptions = [''] * self.n_channels
-            self.last_sample_received = time.time()
+            self.last_sample_received = mp.Value('f', time.time())
 
         else:
             self.lsl_stream_name = ['']
@@ -654,7 +654,7 @@ class BaseNode(object):
                                                        request['channels'],
                                                        time_window)
                     if self.primary_node:
-                        last_sample = time.time() - self.last_sample_received
+                        last_sample = time.time() - self.last_sample_received.value
                         request['last_sample_received'] = last_sample
 
                 else:
@@ -707,7 +707,7 @@ class BaseNode(object):
                     time_window = None
 
                 if self.primary_node:
-                    last_sample = time.time() - self.last_sample_received
+                    last_sample = time.time() - self.last_sample_received.value
                     request['last_sample_received'] = last_sample
 
                 data, times = self.unpack_snapshot(snapshot, channels,
