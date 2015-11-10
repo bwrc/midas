@@ -187,6 +187,7 @@ class BaseNode(object):
 
             if self.channel_descriptions is None:
                 self.channel_descriptions = [''] * self.n_channels
+            self.last_sample_received = time.time()
 
         else:
             self.lsl_stream_name = ['']
@@ -323,6 +324,7 @@ class BaseNode(object):
         self.last_time.value = 0  # init the last_time value
         while self.run_state.value:
             x, t = inlet.pull_sample()
+            self.last_sample_received = time.time()
 
             self.lock_primary.acquire()  # LOCK-ON
 
@@ -651,6 +653,10 @@ class BaseNode(object):
                     data, times = self.unpack_snapshot(snapshot,
                                                        request['channels'],
                                                        time_window)
+                    if self.primary_node:
+                        last_sample = time.time() - self.last_sample_received
+                        request['last_sample_received'] = last_sample
+
                 else:
                     data = []
                     times = []
@@ -699,6 +705,10 @@ class BaseNode(object):
                     time_window = request['time_window']
                 else:
                     time_window = None
+
+                if self.primary_node:
+                    last_sample = time.time() - self.last_sample_received
+                    request['last_sample_received'] = last_sample
 
                 data, times = self.unpack_snapshot(snapshot, channels,
                                                    time_window)
