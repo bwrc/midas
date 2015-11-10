@@ -187,7 +187,7 @@ class BaseNode(object):
 
             if self.channel_descriptions is None:
                 self.channel_descriptions = [''] * self.n_channels
-            self.last_sample_received = mp.Value('f', time.time())
+            self.last_sample_received = mp.Value('d', time.time())
 
         else:
             self.lsl_stream_name = ['']
