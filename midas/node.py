@@ -324,7 +324,7 @@ class BaseNode(object):
         self.last_time.value = 0  # init the last_time value
         while self.run_state.value:
             x, t = inlet.pull_sample()
-            self.last_sample_received = time.time()
+            self.last_sample_received.value = time.time()
 
             self.lock_primary.acquire()  # LOCK-ON
 
