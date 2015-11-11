@@ -163,8 +163,7 @@ class BaseNode(object):
         self.topic_list = {}
 
         if self.run_publisher:
-            self.url_publisher = "tcp://" + \
-                str(self.ip) + ":" + str(self.port_publisher)
+            self.url.publisher = 'tcp://{}:{}'.format(self.ip, self.port_publisher)
             self.message_queue = mp.Queue(10)
         else:
             self.url_publisher = ''
@@ -202,23 +201,18 @@ class BaseNode(object):
         self.secondary_data = secondary_data
         self.default_channel = default_channel
         self.n_channels_secondary = n_channels_secondary
-        self.buffer_size_secondary = [
-            buffer_size_secondary] * self.n_channels_secondary
+        self.buffer_size_secondary = [buffer_size_secondary] * self.n_channels_secondary
         self.channel_names_secondary = channel_names_secondary
         self.channel_descriptions_secondary = channel_descriptions_secondary
 
         if (self.n_channels_secondary > 0) & (self.channel_names_secondary is None):
-            self.channel_names_secondary = [
-                'ch_s_' +
-                str(i) for i in range(
-                    self.n_channels_secondary)]
+            self.channel_names_secondary = ['ch_s_{}'.format(i) for i in range(self.n_channels_secondary)]
 
         if self.channel_descriptions is None:
             self.channel_descriptions = [''] * self.n_channels
 
         if self.channel_descriptions_secondary is None:
-            self.channel_descriptions_secondary = [
-                ''] * self.n_channels_secondary
+            self.channel_descriptions_secondary = [''] * self.n_channels_secondary
 
         # ------------------------------
         # State variables:
@@ -260,10 +254,7 @@ class BaseNode(object):
         if self.secondary_data:
             self.channel_data_secondary = [0] * self.n_channels_secondary
             self.time_array_secondary = [0] * self.n_channels_secondary
-            self.last_time_secondary = mp.Array(
-                'd',
-                [0] *
-                self.n_channels_secondary)
+            self.last_time_secondary = mp.Array('d', [0] * self.n_channels_secondary)
 
             for i in range(self.n_channels_secondary):
                 self.channel_data_secondary[i] = mp.Array(
@@ -298,9 +289,6 @@ class BaseNode(object):
         # ------------------------------
         self.metric_functions = []
 
-    # -------------------------------------------------------------------------
-    # Receiver (receives data and stores the data in a circular buffer)
-    # -------------------------------------------------------------------------
     def receiver(self):
         """ Receive data from an LSL stream and store it in a circular
             buffer.
@@ -347,9 +335,6 @@ class BaseNode(object):
         # Ending run, clear inlet
         inlet.close_stream()
 
-    # -------------------------------------------------------------------------
-    # Publish messages that are placed in the message queue
-    # -------------------------------------------------------------------------
     def publisher(self):
         """ Publish data using ZeroMQ.
 
@@ -369,9 +354,6 @@ class BaseNode(object):
                     (self.nodename, self.message_queue.get()))
             time.sleep(0.0001)
 
-    # -------------------------------------------------------------------------
-    # Respond to queries over ZeroMQ
-    # -------------------------------------------------------------------------
     def responder(self, responder_id):
         """ Respond to queries over ZeroMQ.
 
@@ -412,7 +394,6 @@ class BaseNode(object):
 
             except zmq.ContextTerminated:
                 return
-    # -------------------------------------------------------------------------
 
     def unwrap_channel(self, channel_name):
         """ Gives the unwrapping vector for the specified channel
@@ -746,9 +727,6 @@ class BaseNode(object):
 
         return json.dumps(return_value)
 
-    # -------------------------------------------------------------------------
-    # Start the node
-    # -------------------------------------------------------------------------
     def start(self):
         """ Start the node. """
         self.run_state.value = 1
@@ -806,9 +784,6 @@ class BaseNode(object):
         time.sleep(5)
         print("Node '%s' now online." % self.nodename)
 
-    # -------------------------------------------------------------------------
-    # Stop the node
-    # -------------------------------------------------------------------------
     def stop(self):
         """ Terminates the node. """
         if self.run_state.value:
@@ -845,9 +820,6 @@ class BaseNode(object):
 
         print("Node '%s' is now offline." % self.nodename)
 
-    # -------------------------------------------------------------------------
-    # Minimalist user interface for the node
-    # -------------------------------------------------------------------------
     def show_ui(self):
         """ Show a minimal user interface. """
         while True:
@@ -856,9 +828,6 @@ class BaseNode(object):
                 self.stop()
                 sys.exit(0)
 
-    # -------------------------------------------------------------------------
-    # Generate metric list
-    # -------------------------------------------------------------------------
     def generate_metric_lists(self):
         """ Generate metric lists for the node.
 
@@ -904,32 +873,24 @@ class BaseNode(object):
         self.nodeinfo['buffer_size'] = self.buffer_size_s
         self.nodeinfo['buffer_full'] = self.buffer_full.value
 
-    # -------------------------------------------------------------------------
-    # Return descriptions of the metrics
-    # -------------------------------------------------------------------------
     def get_metric_list(self):
         """ Returns the metrics list of the node as a dictionary where the name
             of the metric is the key and the description is the value.
         """
         return self.metric_descriptions
-    # -------------------------------------------------------------------------
 
     def get_topic_list(self):
         """ Return topics that are published by the node. """
         return self.topic_list
 
-    # -------------------------------------------------------------------------
-
     def get_nodeinfo(self):
         """ Return information about the node. """
         self.generate_nodeinfo()
         return self.nodeinfo
-    # -------------------------------------------------------------------------
 
     def get_publisher_url(self):
         """ Return the URL of the publisher socket in the node. """
         return self.url_publisher
-    # -------------------------------------------------------------------------
 
     def get_data_list(self):
         """ Returns the data list of the node as a dictionary where the name of
@@ -938,4 +899,3 @@ class BaseNode(object):
         cn = self.channel_names + self.channel_names_secondary
         cd = self.channel_descriptions + self.channel_descriptions_secondary
         return dict(zip(cn, cd))
-    # -------------------------------------------------------------------------
