@@ -127,14 +127,10 @@ class BaseNode(object):
                 buffer_size_secondary = int(config['buffer_size_secondary'])
 
             if 'channel_names_secondary' in config:
-                channel_names_secondary = mu.listify(
-                    config,
-                    'channel_names_secondary')
+                channel_names_secondary = mu.listify(config, 'channel_names_secondary')
 
             if 'channel_descriptions_secondary' in config:
-                channel_descriptions_secondary = mu.listify(
-                    config,
-                    'channel_descriptions_secondary')
+                channel_descriptions_secondary = mu.listify(config, 'channel_descriptions_secondary')
 
         # general node properties
         self.nodename = nodename
@@ -163,7 +159,7 @@ class BaseNode(object):
         self.topic_list = {}
 
         if self.run_publisher:
-            self.url.publisher = 'tcp://{}:{}'.format(self.ip, self.port_publisher)
+            self.url_publisher = 'tcp://{}:{}'.format(self.ip, self.port_publisher)
             self.message_queue = mp.Queue(10)
         else:
             self.url_publisher = ''
@@ -257,20 +253,11 @@ class BaseNode(object):
             self.last_time_secondary = mp.Array('d', [0] * self.n_channels_secondary)
 
             for i in range(self.n_channels_secondary):
-                self.channel_data_secondary[i] = mp.Array(
-                    'd',
-                    [0] *
-                    self.buffer_size_secondary[i])
-                self.time_array_secondary[i] = mp.Array(
-                    'd',
-                    [0] *
-                    self.buffer_size_secondary[i])
+                self.channel_data_secondary[i] = mp.Array('d', [0] * self.buffer_size_secondary[i])
+                self.time_array_secondary[i] = mp.Array('d', [0] * self.buffer_size_secondary[i])
 
             self.wptr_secondary = mp.Array('i', [0] * self.n_channels_secondary)
-            self.buffer_full_secondary = mp.Array(
-                'i',
-                [0] *
-                self.n_channels_secondary)
+            self.buffer_full_secondary = mp.Array('i', [0] * self.n_channels_secondary)
 
         # ------------------------------
         # Empty containers for functions
@@ -298,10 +285,7 @@ class BaseNode(object):
 
         while not streams:
             print("Trying to connect to the stream: " + self.lsl_stream_name)
-            streams = lsl.resolve_byprop(
-                'name',
-                self.lsl_stream_name,
-                timeout=10)
+            streams = lsl.resolve_byprop('name', self.lsl_stream_name, timeout=10)
             if not streams:
                 print("\tStream not found, re-trying...")
 
@@ -349,9 +333,7 @@ class BaseNode(object):
 
         while self.run_state.value:
             if not self.message_queue.empty():
-                socket.send_string(
-                    "%s;%s" %
-                    (self.nodename, self.message_queue.get()))
+                socket.send_string('{};{}'.format(self.nodename, self.message_queue.get()))
             time.sleep(0.0001)
 
     def responder(self, responder_id):
@@ -416,8 +398,7 @@ class BaseNode(object):
             if self.buffer_full_secondary[ch_idx]:
                 idx = [0] * self.buffer_size_secondary[ch_idx]
                 for i in range(self.buffer_size_secondary[ch_idx]):
-                    idx[i] = ((self.wptr_secondary[ch_idx] + i) %
-                              self.buffer_size_secondary[ch_idx])
+                    idx[i] = (self.wptr_secondary[ch_idx] + i) % self.buffer_size_secondary[ch_idx]
             else:
                 idx = range(self.wptr_secondary[ch_idx])
 
@@ -438,12 +419,10 @@ class BaseNode(object):
         self.time_array_secondary[ch][self.wptr_secondary[ch]] = timep
         self.wptr_secondary[ch] += 1
 
-        if ((0 == self.buffer_full_secondary[ch]) and
-                (self.wptr_secondary[ch] >= self.buffer_size_secondary[ch])):
+        if 0 == self.buffer_full_secondary[ch] and self.wptr_secondary[ch] >= self.buffer_size_secondary[ch]:
             self.buffer_full_secondary[ch] = 1
 
-        self.wptr_secondary[ch] = (self.wptr_secondary[ch] %
-                                   self.buffer_size_secondary[ch])
+        self.wptr_secondary[ch] = self.wptr_secondary[ch] % self.buffer_size_secondary[ch]
         if use_lock:
             self.lock_secondary[ch].release()
 
@@ -489,19 +468,13 @@ class BaseNode(object):
 
         if 'channels' in request:
             try:
-                channels_ok = set(
-                    self.channel_names +
-                    self.channel_names_secondary).issuperset(
-                    request['channels'])
+                channels_ok = set(self.channel_names + self.channel_names_secondary).issuperset(request['channels'])
             except:
                 channels_ok = False
 
         if 'time_window' in request:
             try:
-                time_ok = all(
-                    [isinstance
-                     (t, (float, int))
-                     for t in request['time_window']])
+                time_ok = all([isinstance(t, (float, int)) for t in request['time_window']])
             except:
                 time_ok = False
 
@@ -519,9 +492,7 @@ class BaseNode(object):
         for request in requests:
             if 'channels' in request:
                 channels.extend(request['channels'])
-        return list(set.intersection(set(channels),
-                                     set(self.channel_names +
-                                         self.channel_names_secondary)))
+        return list(set.intersection(set(channels), set(self.channel_names + self.channel_names_secondary)))
 
     def get_data_from_channel(self, channel_name):
         """ Copy and unwrap data from specified channel
@@ -634,6 +605,7 @@ class BaseNode(object):
                     data, times = self.unpack_snapshot(snapshot,
                                                        request['channels'],
                                                        time_window)
+                    # TODO: Consider moving this to unpack_snapshot
                     if self.primary_node:
                         last_sample = time.time() - self.last_sample_received.value
                         request['last_sample_received'] = last_sample
@@ -735,21 +707,19 @@ class BaseNode(object):
         self.generate_metric_lists()
 
         # Create and configure beacon
-        self.beacon = mu.Beacon(
-            name=self.nodename,
-            type=self.nodetype,
-            id=self.nodeid,
-            interval=2)
+        self.beacon = mu.Beacon(name=self.nodename,
+                                type=self.nodetype,
+                                id=self.nodeid,
+                                interval=2)
         self.beacon.ip = self.ip
         self.beacon.port = self.port_frontend
 
         # Start the load-balancing broker
-        self.proc_broker = mp.Process(
-            target=mu.LRU_queue_broker,
-            args=(self.url_frontend,
-                  self.url_backend,
-                  self.n_workers,
-                  self.run_state))
+        self.proc_broker = mp.Process(target=mu.LRU_queue_broker,
+                                      args=(self.url_frontend,
+                                            self.url_backend,
+                                            self.n_workers,
+                                            self.run_state))
         self.proc_broker.start()
 
         # Start the publisher if it is configured
@@ -867,8 +837,7 @@ class BaseNode(object):
         self.nodeinfo['primary_node'] = self.primary_node
         self.nodeinfo['channel_count'] = self.n_channels
         self.nodeinfo['channel_names'] = ",".join(self.channel_names)
-        self.nodeinfo['channel_descriptions'] = ",".join(
-            self.channel_descriptions)
+        self.nodeinfo['channel_descriptions'] = ",".join(self.channel_descriptions)
         self.nodeinfo['sampling_rate'] = self.sampling_rate
         self.nodeinfo['buffer_size'] = self.buffer_size_s
         self.nodeinfo['buffer_full'] = self.buffer_full.value
