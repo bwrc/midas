@@ -91,8 +91,7 @@ class Dispatcher():
 
         # set pubsub proxy url
         if self.run_pubsub_proxy:
-            self.url_proxy_out = "tcp://" + \
-                str(self.ip) + ":" + str(self.proxy_port_out)
+            self.url_proxy_out = 'tcp://{}:{}'.format(self.ip, self.proxy_port_out)
         else:
             self.url_proxy_out = ''
 
@@ -247,15 +246,12 @@ class Dispatcher():
         bottle.response.content_type = 'application/json'
 
         if callback_function:
-            result = "%s(%s)" % (callback_function, data)
+            result = '{}({})'.format(callback_function, data)
         else:
-            result = json.dumps(
-                data,
-                sort_keys=True,
-                indent=4,
-                separators=(
-                    ',',
-                    ' : '))
+            result = json.dumps(data,
+                                sort_keys=True,
+                                indent=4,
+                                separators=(',', ' : '))
         return result
 
     def pass_json(self, data):
@@ -267,7 +263,7 @@ class Dispatcher():
         bottle.response.content_type = 'application/json'
 
         if callback_function:
-            result = "%s(%s)" % (callback_function, data)
+            result = '{}({})'.format(callback_function, data)
         else:
             result = data
 
@@ -282,7 +278,6 @@ class Dispatcher():
         """
 
         return('MIDAS Dispatcher online.')
-    # -------------------------------------------------------------------------
 
     def status_nodes(self):
         """
@@ -331,8 +326,6 @@ class Dispatcher():
 
         return self.format_json(self.node_addresses)
 
-    # -------------------------------------------------------------------------
-
     def status_metrics(self, node=None):
         """
         @api {get} /:nodename/status/metrics Available metrics
@@ -369,7 +362,6 @@ class Dispatcher():
             return self.format_json(self.node_metrics[node])
         else:
             return self.format_json(self.node_metrics)
-    # -------------------------------------------------------------------------
 
     def status_data(self, node=None):
         """
@@ -407,7 +399,6 @@ class Dispatcher():
             return self.format_json(self.node_data[node])
         else:
             return self.format_json(self.node_data)
-    # -------------------------------------------------------------------------
 
     def status_topics(self, node=None):
         """
@@ -442,7 +433,6 @@ class Dispatcher():
             return self.format_json(self.node_topics[node])
         else:
             return self.format_json(self.node_topics)
-    # -------------------------------------------------------------------------
 
     def status_publisher(self):
         """
@@ -468,7 +458,6 @@ class Dispatcher():
             return self.format_json({'url': self.url_proxy_out})
         else:
             return self.format_json({'error': 'proxy not running'})
-    # -------------------------------------------------------------------------
 
     def status_nodeinfo(self, node):
         """
@@ -511,7 +500,6 @@ class Dispatcher():
             results = {'error': 'node not available'}
 
         return self.pass_json(results)
-    # -------------------------------------------------------------------------
 
     def get_metric(self, node, requests):
         """@api {get} /:nodename/metric/:requests Request metrics
@@ -580,7 +568,6 @@ class Dispatcher():
             return self.pass_json(result)
         else:
             return self.format_json({'error': 'node not available'})
-    # -------------------------------------------------------------------------
 
     def get_data(self, node, requests):
         """
@@ -709,7 +696,7 @@ class Dispatcher():
                 time_sent = time.time()
                 socket_tmp = self.context.socket(zmq.REQ)
                 socket_tmp.connect(self.node_addresses[node]['address'])
-                mu.midas_send(socket_tmp, 'ping', "ping")
+                mu.midas_send(socket_tmp, 'ping', 'ping')
                 ping = socket_tmp.recv_string()
                 latencies.append(time.time() - time_sent - float(ping))
             return self.format_json({node + "_RTT": latencies})
@@ -724,7 +711,7 @@ class Dispatcher():
         time.sleep(1)
 
         while self.run_state:
-            tmp = input(" > ")
+            tmp = input(' > ')
             if tmp == "q":
                 break
         self.stop()
@@ -744,20 +731,13 @@ class Dispatcher():
 
         # start thread running publisher-subscriber proxy
         if self.run_pubsub_proxy:
-            self.psproxy_watchdog = threading.Thread(
-                target=self.pubsub_proxy_watchdog)
+            self.psproxy_watchdog = threading.Thread(target=self.pubsub_proxy_watchdog)
             self.psproxy_watchdog.start()
 
         # Connect routes
         bottle.route('/', method="GET")(self.root)
-        bottle.route(
-            '/<node>/metric/<requests>',
-            method="GET")(
-            self.get_metric)
-        bottle.route(
-            '/<node>/data/<requests>',
-            method="GET")(
-            self.get_data)
+        bottle.route('/<node>/metric/<requests>', method="GET")(self.get_metric)
+        bottle.route('/<node>/data/<requests>', method="GET")(self.get_data)
 
         # Status request routes
         bottle.route('/status/nodes', method="GET")(self.status_nodes)
@@ -767,10 +747,7 @@ class Dispatcher():
         bottle.route('/status/publisher', method="GET")(self.status_publisher)
 
         # Node status request routes
-        bottle.route(
-            '/<node>/status/metrics',
-            method="GET")(
-            self.status_metrics)
+        bottle.route('/<node>/status/metrics', method="GET")(self.status_metrics)
         bottle.route('/<node>/status/data', method="GET")(self.status_data)
         bottle.route('/<node>/status/topics', method="GET")(self.status_topics)
 
@@ -789,11 +766,10 @@ class Dispatcher():
 
         # Start the web server
         app = bottle.default_app()
-        waitress.serve(
-            app,
-            host=self.ip,
-            port=self.port,
-            threads=self.n_threads)
+        waitress.serve(app,
+                       host=self.ip,
+                       port=self.port,
+                       threads=self.n_threads)
 
     def stop(self):
         print("Stopping dispatcher")
@@ -806,6 +782,7 @@ class Dispatcher():
 
         os._exit(1)
 
+
 def run_from_cli():
     """
     Define a function to be used as an entry point for setup.py.
@@ -814,9 +791,7 @@ def run_from_cli():
     if dp is not None:
         dp.start()
 
-# -----------------------------------------------------------------------------
-# Run the dispatcher if started from the command line
-# -----------------------------------------------------------------------------
+
 if __name__ == "__main__":
     dp = mu.midas_parse_config(Dispatcher, sys.argv)
     if dp is not None:
