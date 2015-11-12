@@ -138,6 +138,7 @@ class BaseNode(object):
         self.nodeid = nodeid
         self.nodedesc = nodedesc
         self.primary_node = primary_node
+        self.secondary_data = secondary_data
         self.port_frontend = port_frontend
         self.port_backend = port_backend
         self.port_publisher = port_publisher
@@ -166,98 +167,29 @@ class BaseNode(object):
 
         # primary channels and data stream properties
         if self.primary_node:
-            self.lsl_stream_name = lsl_stream_name
-            self.n_channels = n_channels
-            if channel_names:
-                self.channel_names = channel_names
-            else:
-                self.channel_names = [str(c) for c in range(self.n_channels)]
-            self.channel_descriptions = channel_descriptions
-            self.sampling_rate = sampling_rate
-            self.buffer_size_s = buffer_size_s
-            if self.sampling_rate > 0:
-                self.buffer_size = int(self.buffer_size_s * self.sampling_rate)
-            else:
-                self.buffer_size = int(self.buffer_size_s)
+            self.initialize_primary(lsl_stream_name, n_channels, channel_names,
+                                    buffer_size_s, sampling_rate,
+                                    channel_descriptions)
 
-            if self.channel_descriptions is None:
-                self.channel_descriptions = [''] * self.n_channels
-            self.last_sample_received = mp.Value('d', time.time())
-
-        else:
-            self.lsl_stream_name = ['']
-            self.n_channels = 0
-            self.channel_names = ['']
-            self.channel_descriptions = ['']
-            self.sampling_rate = 0
-            self.buffer_size_s = 0
-            self.buffer_size = 0
-
-        # secondary channels
-        self.secondary_data = secondary_data
-        self.default_channel = default_channel
-        self.n_channels_secondary = n_channels_secondary
-        self.buffer_size_secondary = [buffer_size_secondary] * self.n_channels_secondary
-        self.channel_names_secondary = channel_names_secondary
-        self.channel_descriptions_secondary = channel_descriptions_secondary
-
-        if (self.n_channels_secondary > 0) & (self.channel_names_secondary is None):
-            self.channel_names_secondary = ['ch_s_{}'.format(i) for i in range(self.n_channels_secondary)]
-
-        if self.channel_descriptions is None:
-            self.channel_descriptions = [''] * self.n_channels
-
-        if self.channel_descriptions_secondary is None:
-            self.channel_descriptions_secondary = [''] * self.n_channels_secondary
+        # secondary channels and properties
+        if self.secondary_data:
+            self.initialize_secondary(default_channel, n_channels_secondary,
+                                      buffer_size_secondary,
+                                      channel_names_secondary,
+                                      channel_descriptions_secondary)
 
         # ------------------------------
         # State variables:
         #    run_state      : poison pill to control processes
-        #    wptr   : the current index being written to in the
-        #                     circular buffer (channel_data)
-        #    buffer_full    : has the circular buffer been full or not
         #    lock_primary   : lock for channel_data (primary data)
         #    lock_secondary : lock for the secondary channel_data
         # ------------------------------
         self.run_state = mp.Value('i', 0)
-
-        self.wptr = mp.Value('i', 0)
-        self.buffer_full = mp.Value('i', 0)
-
         self.lock_primary = mp.Lock()
         self.lock_secondary = []
+
         for i in range(self.n_channels_secondary):
             self.lock_secondary.append(mp.Lock())
-
-        # ------------------------------
-        # Data containers
-        # ------------------------------
-        # Preallocate primary buffers
-        if self.primary_node:
-            self.channel_data = [0] * self.n_channels
-
-            for i in range(self.n_channels):
-                self.channel_data[i] = mp.Array('d', [0] * self.buffer_size)
-
-            self.time_array = mp.Array('d', [0] * self.buffer_size)
-            self.last_time = mp.Array('d', [0])
-        else:
-            self.channel_data = []
-            self.time_array = []
-            self.last_time = []
-
-        # Preallocate secondary buffers
-        if self.secondary_data:
-            self.channel_data_secondary = [0] * self.n_channels_secondary
-            self.time_array_secondary = [0] * self.n_channels_secondary
-            self.last_time_secondary = mp.Array('d', [0] * self.n_channels_secondary)
-
-            for i in range(self.n_channels_secondary):
-                self.channel_data_secondary[i] = mp.Array('d', [0] * self.buffer_size_secondary[i])
-                self.time_array_secondary[i] = mp.Array('d', [0] * self.buffer_size_secondary[i])
-
-            self.wptr_secondary = mp.Array('i', [0] * self.n_channels_secondary)
-            self.buffer_full_secondary = mp.Array('i', [0] * self.n_channels_secondary)
 
         # ------------------------------
         # Empty containers for functions
@@ -275,6 +207,78 @@ class BaseNode(object):
         # Empty container for metric functions
         # ------------------------------
         self.metric_functions = []
+
+    def initialize_primary(self, lsl_stream_name, n_channels, channel_names,
+                           buffer_size_s, sampling_rate, channel_descriptions):
+        """ Initialize primary LSL stream properties and allocate memory for
+            storing the data.
+        """
+
+        # Initialize stream properties
+        self.lsl_stream_name = lsl_stream_name
+        self.n_channels = n_channels
+        if channel_names:
+            self.channel_names = channel_names
+        else:
+            self.channel_names = [str(c) for c in range(self.n_channels)]
+
+        self.sampling_rate = sampling_rate
+        self.buffer_size_s = buffer_size_s
+        if self.sampling_rate > 0:
+            self.buffer_size = int(self.buffer_size_s * self.sampling_rate)
+        else:
+            self.buffer_size = self.buffer_size_s
+
+        if not self.channel_descritions:
+            self.channel_descriptions = [''] * self.n_channels
+        else:
+            self.channel_descriptions = channel_descriptions
+
+        self.last_sample_received = mp.Value('d', time.time())
+
+        # Preallocate primary buffers
+        self.channel_data = [0] * self.n_channels
+        for i in range(self.n_channels):
+            self.channel_data[i] = mp.Array('d', [0] * self.buffer_size)
+        self.time_array = mp.Array('d', [0] * self.buffer_size)
+        self.last_time = mp.Array('d', [0])
+
+        self.wptr = mp.Value('i', 0)
+        self.buffer_full = mp.Value('i', 0)
+
+    def initialize_secondary(self, default_channel, n_channels, buffer_size,
+                             channel_names, channel_descriptions):
+        """ Initialize secondary data properties and allocate memory for
+            storing the data.
+        """
+
+        # Initialize data properties
+        self.default_channel = default_channel
+        self.n_channels_secondary = n_channels
+        self.buffer_size_secondary = [buffer_size] * n_channels
+        self.channel_names_secondary = channel_names
+        self.channel_descriptions_secondary = channel_descriptions
+
+        if self.n_channels_secondary > 0 and not self.channel_names_secondary:
+            new_names = []
+            for idx in range(self.n_channels_secondary):
+                new_names.append('ch_s_{}'.format(idx))
+            self.channel_names_secondary = new_names
+
+        if not self.channel_descriptions_secondary:
+            self.channel_descriptions_secondary = [''] * self.n_channels_secondary
+
+        # Preallocate secondary buffers
+        self.channel_data_secondary = [0] * self.n_channels_secondary
+        self.time_array_secondary = [0] * self.n_channels_secondary
+        self.last_time_secondary = mp.Array('d', [0] * self.n_channels_secondary)
+
+        for idx, size in enumerate(self.buffer_size_secondary):
+            self.channel_data_secondary[idx] = mp.Array('d', [0] * size)
+            self.time_array_secondary[idx] = mp.Array('d', [0] * size)
+
+        self.wptr_secondary = mp.Array('i', [0] * self.n_channels_secondary)
+        self.buffer_full_secondary = mp.Array('i', [0] * self.n_channels_secondary)
 
     def receiver(self):
         """ Receive data from an LSL stream and store it in a circular
