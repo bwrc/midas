@@ -229,7 +229,7 @@ class BaseNode(object):
         else:
             self.buffer_size = self.buffer_size_s
 
-        if not self.channel_descritions:
+        if not self.channel_descriptions:
             self.channel_descriptions = [''] * self.n_channels
         else:
             self.channel_descriptions = channel_descriptions
