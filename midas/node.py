@@ -224,6 +224,7 @@ class BaseNode(object):
 
         self.sampling_rate = sampling_rate
         self.buffer_size_s = buffer_size_s
+        self.channel_descriptions = channel_descriptions
         if self.sampling_rate > 0:
             self.buffer_size = int(self.buffer_size_s * self.sampling_rate)
         else:
