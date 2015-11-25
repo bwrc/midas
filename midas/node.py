@@ -168,6 +168,11 @@ class BaseNode(object):
                                     primary_buffer_size_s,
                                     primary_sampling_rate,
                                     primary_channel_descriptions)
+        else:
+            self.primary_n_channels = 0
+            self.primary_buffer_size = 0
+            self.primary_channel_names = []
+            self.primary_channel_descriptions = []
 
         # secondary channels and properties
         if self.secondary_node:
@@ -234,7 +239,7 @@ class BaseNode(object):
         else:
             self.primary_channel_descriptions = primary_channel_descriptions
 
-        self.last_sample_received = mp.Value('d', time.time())
+        self.primary_last_sample_received = mp.Value('d', time.time())
 
         # Preallocate primary buffers
         self.primary_channel_data = [0] * self.primary_n_channels
@@ -306,7 +311,7 @@ class BaseNode(object):
         self.last_time.value = 0  # init the last_time value
         while self.run_state.value:
             x, t = inlet.pull_sample()
-            self.last_sample_received.value = time.time()
+            self.primary_last_sample_received.value = time.time()
 
             self.primary_lock.acquire()  # LOCK-ON
 
@@ -617,8 +622,8 @@ class BaseNode(object):
                                                        time_window)
                     # TODO: Consider moving this to unpack_snapshot
                     if self.primary_node:
-                        last_sample = time.time() - self.last_sample_received.value
-                        request['last_sample_received'] = last_sample
+                        last_sample = time.time() - self.primary_last_sample_received.value
+                        request['primary_last_sample_received'] = last_sample
 
                 else:
                     data = []
@@ -670,8 +675,8 @@ class BaseNode(object):
                     time_window = None
 
                 if self.primary_node:
-                    last_sample = time.time() - self.last_sample_received.value
-                    request['last_sample_received'] = last_sample
+                    last_sample = time.time() - self.primary_last_sample_received.value
+                    request['primary_last_sample_received'] = last_sample
 
                 data, times = self.unpack_snapshot(snapshot, channels,
                                                    time_window)
@@ -717,9 +722,10 @@ class BaseNode(object):
         self.generate_metric_lists()
 
         # Create and configure beacon
+        # TODO: Change argument names in utilities.py as well
         self.beacon = mu.Beacon(name=self.node_name,
-                                type=self.node_type,
-                                id=self.node_id,
+                                node_type=self.node_type,
+                                node_id=self.node_id,
                                 interval=2)
         self.beacon.ip = self.ip
         self.beacon.port = self.port_frontend
@@ -864,6 +870,7 @@ class BaseNode(object):
 
     def get_nodeinfo(self):
         """ Return information about the node. """
+        # TODO: Merge above, generate_nodeinfo is only called here
         self.generate_nodeinfo()
         return self.nodeinfo
 

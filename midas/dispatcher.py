@@ -153,11 +153,8 @@ class Dispatcher():
                         proxy_running = False
                 else:
                     context = zmq.Context()
-                    psproxy = threading.Thread(
-                        target=self.pubsub_proxy,
-                        args=(
-                            context,
-                            ))
+                    psproxy = threading.Thread(target=self.pubsub_proxy,
+                                               args=(context,))
                     psproxy.start()
                     proxy_running = True
 
@@ -796,4 +793,3 @@ if __name__ == "__main__":
     dp = mu.midas_parse_config(Dispatcher, sys.argv)
     if dp is not None:
         dp.start()
-# -----------------------------------------------------------------------------

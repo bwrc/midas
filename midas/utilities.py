@@ -28,8 +28,8 @@ class Beacon(object):
 
     def __init__(self,
                  name='',
-                 type='',
-                 id='',
+                 node_type='',
+                 node_id='',
                  ip=None,
                  port='',
                  protocol='tcp',
