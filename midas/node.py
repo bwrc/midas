@@ -27,28 +27,28 @@ class BaseNode(object):
 
     def __init__(self,
                  config=None,
-                 nodename="basenode",
-                 nodetype='',
-                 nodeid="00",
-                 nodedesc="base node",
+                 node_name="basenode",
+                 node_type='',
+                 node_id="00",
+                 node_description="base node",
                  primary_node=True,
                  ip=None,
                  port_frontend=5001,
                  port_backend=5002,
                  port_publisher='',
-                 n_workers=5,
+                 n_responders=5,
                  lsl_stream_name=None,
-                 n_channels=None,
-                 channel_names=[],
-                 channel_descriptions=None,
-                 sampling_rate=None,
-                 buffer_size_s=30,
+                 primary_n_channels=None,
+                 primary_channel_names=[],
+                 primary_channel_descriptions=None,
+                 primary_sampling_rate=None,
+                 primary_buffer_size_s=30,
                  run_publisher=False,
-                 secondary_data=False,
-                 n_channels_secondary=0,
-                 buffer_size_secondary=0,
-                 channel_names_secondary=[],
-                 channel_descriptions_secondary=None,
+                 secondary_node=False,
+                 secondary_n_channels=0,
+                 secondary_buffer_size=0,
+                 secondary_channel_names=[],
+                 secondary_channel_descriptions=None,
                  default_channel=''):
         """ Initializes a basic MIDAS node class. Arguments can be passed either
             as config dict or specified spearately. If argumets are passed via
@@ -59,17 +59,17 @@ class BaseNode(object):
         # Parse information from a dictionary (from an ini-file), if provided
         if config:
             # Settings for general node properties
-            if 'nodename' in config:
-                nodename = config['nodename']
+            if 'node_name' in config:
+                node_name = config['node_name']
 
-            if 'nodetype' in config:
-                nodetype = config['nodetype']
+            if 'node_type' in config:
+                node_type = config['node_type']
 
-            if 'nodeid' in config:
-                nodeid = config['nodeid']
+            if 'node_id' in config:
+                node_id = config['node_id']
 
-            if 'nodedesc' in config:
-                nodedesc = config['nodedesc']
+            if 'node_description' in config:
+                node_description = config['node_description']
 
             if 'ip' in config:
                 ip = config['ip'].lower().strip()
@@ -89,61 +89,56 @@ class BaseNode(object):
             if 'run_publisher' in config:
                 run_publisher = mu.str2bool(config['run_publisher'])
 
-            if 'n_workers' in config:
-                n_workers = int(config['n_workers'])
+            if 'n_responders' in config:
+                n_responders = int(config['n_responders'])
 
             # Settings for data stream properties
             if 'lsl_stream_name' in config:
                 lsl_stream_name = config['lsl_stream_name']
 
-            if 'n_channels' in config:
-                n_channels = int(config['n_channels'])
+            if 'primary_n_channels' in config:
+                primary_n_channels = int(config['primary_n_channels'])
 
-            if 'channel_names' in config:
-                channel_names = mu.listify(config, 'channel_names')
+            if 'primary_channel_names' in config:
+                primary_channel_names = mu.listify(config, 'primary_channel_names')
 
-            if 'channel_descriptions' in config:
-                channel_descriptions = mu.listify(
-                    config,
-                    'channel_descriptions')
+            if 'primary_channel_descriptions' in config:
+                primary_channel_descriptions = mu.listify(config, 'primary_channel_descriptions')
 
-            if 'sampling_rate' in config:
-                sampling_rate = int(config['sampling_rate'])
+            if 'primary_sampling_rate' in config:
+                primary_sampling_rate = int(config['primary_sampling_rate'])
 
-            if 'buffer_size_s' in config:
-                buffer_size_s = float(config['buffer_size_s'])
+            if 'primary_buffer_size_s' in config:
+                primary_buffer_size_s = float(config['primary_buffer_size_s'])
 
             # Settings for secondary channels
-            if 'secondary_data' in config:
-                secondary_data = config['secondary_data']
+            if 'secondary_node' in config:
+                secondary_node = config['secondary_node']
 
-            if 'default_channel' in config:
-                default_channel = config['default_channel']
+            if 'secondary_n_channels' in config:
+                secondary_n_channels = int(config['secondary_n_channels'])
 
-            if 'n_channels_secondary' in config:
-                n_channels_secondary = int(config['n_channels_secondary'])
+            if 'secondary_buffer_size' in config:
+                secondary_buffer_size = int(config['secondary_buffer_size'])
 
-            if 'buffer_size_secondary' in config:
-                buffer_size_secondary = int(config['buffer_size_secondary'])
+            if 'secondary_channel_names' in config:
+                secondary_channel_names = mu.listify(config, 'secondary_channel_names')
 
-            if 'channel_names_secondary' in config:
-                channel_names_secondary = mu.listify(config, 'channel_names_secondary')
-
-            if 'channel_descriptions_secondary' in config:
-                channel_descriptions_secondary = mu.listify(config, 'channel_descriptions_secondary')
+            if 'secondary_channel_descriptions' in config:
+                secondary_channel_descriptions = mu.listify(config, 'secondary_channel_descriptions')
 
         # general node properties
-        self.nodename = nodename
-        self.nodetype = nodetype
-        self.nodeid = nodeid
-        self.nodedesc = nodedesc
+        self.node_name = node_name
+        self.node_type = node_type
+        self.node_id = node_id
+        self.node_description = node_description
         self.primary_node = primary_node
-        self.secondary_data = secondary_data
+        self.secondary_node = secondary_node
         self.port_frontend = port_frontend
         self.port_backend = port_backend
         self.port_publisher = port_publisher
         self.run_publisher = run_publisher
-        self.n_workers = n_workers
+        self.n_responders = n_responders
 
         # Automatically determine the IP of the node unless set in the node
         # configuration
@@ -167,22 +162,30 @@ class BaseNode(object):
 
         # primary channels and data stream properties
         if self.primary_node:
-            self.initialize_primary(lsl_stream_name, n_channels, channel_names,
-                                    buffer_size_s, sampling_rate,
-                                    channel_descriptions)
+            self.initialize_primary(lsl_stream_name,
+                                    primary_n_channels,
+                                    primary_channel_names,
+                                    primary_buffer_size_s,
+                                    primary_sampling_rate,
+                                    primary_channel_descriptions)
 
         # secondary channels and properties
-        if self.secondary_data:
-            self.initialize_secondary(default_channel, n_channels_secondary,
-                                      buffer_size_secondary,
-                                      channel_names_secondary,
-                                      channel_descriptions_secondary)
+        if self.secondary_node:
+            self.initialize_secondary(secondary_n_channels,
+                                      secondary_buffer_size,
+                                      secondary_channel_names,
+                                      secondary_channel_descriptions)
+        else:
+            self.secondary_n_channels = 0
+            self.secondary_buffer_size = 0
+            self.secondary_channel_names = []
+            self.secondary_channel_descriptions = []
 
         # ------------------------------
         # State variables:
         #    run_state      : poison pill to control processes
-        #    lock_primary   : lock for channel_data (primary data)
-        #    lock_secondary : lock for the secondary channel_data
+        #    primary_lock   : lock for channel_data (primary data)
+        #    secondary_lock : lock for the secondary channel_data
         # ------------------------------
         self.run_state = mp.Value('i', 0)
 
@@ -203,85 +206,85 @@ class BaseNode(object):
         # ------------------------------
         self.metric_functions = []
 
-    def initialize_primary(self, lsl_stream_name, n_channels, channel_names,
-                           buffer_size_s, sampling_rate, channel_descriptions):
+    def initialize_primary(self, lsl_stream_name, primary_n_channels,
+                           primary_channel_names, primary_buffer_size_s,
+                           primary_sampling_rate, primary_channel_descriptions):
         """ Initialize primary LSL stream properties and allocate memory for
             storing the data.
         """
 
         # Initialize stream properties
         self.lsl_stream_name = lsl_stream_name
-        self.n_channels = n_channels
-        if channel_names:
-            self.channel_names = channel_names
+        self.primary_n_channels = primary_n_channels
+        if primary_channel_names:
+            self.primary_channel_names = primary_channel_names
         else:
-            self.channel_names = [str(c) for c in range(self.n_channels)]
+            self.primary_channel_names = [str(c) for c in range(self.primary_n_channels)]
 
-        self.sampling_rate = sampling_rate
-        self.buffer_size_s = buffer_size_s
-        self.channel_descriptions = channel_descriptions
-        if self.sampling_rate > 0:
-            self.buffer_size = int(self.buffer_size_s * self.sampling_rate)
+        self.primary_sampling_rate = primary_sampling_rate
+        self.primary_buffer_size_s = primary_buffer_size_s
+        self.primary_channel_descriptions = primary_channel_descriptions
+        if self.primary_sampling_rate > 0:
+            self.primary_buffer_size = int(self.primary_buffer_size_s * self.primary_sampling_rate)
         else:
-            self.buffer_size = self.buffer_size_s
+            self.primary_buffer_size = self.primary_buffer_size_s
 
-        if not self.channel_descriptions:
-            self.channel_descriptions = [''] * self.n_channels
+        if not self.primary_channel_descriptions:
+            self.primary_channel_descriptions = [''] * self.primary_n_channels
         else:
-            self.channel_descriptions = channel_descriptions
+            self.primary_channel_descriptions = primary_channel_descriptions
 
         self.last_sample_received = mp.Value('d', time.time())
 
         # Preallocate primary buffers
-        self.channel_data = [0] * self.n_channels
-        for i in range(self.n_channels):
-            self.channel_data[i] = mp.Array('d', [0] * self.buffer_size)
-        self.time_array = mp.Array('d', [0] * self.buffer_size)
-        self.last_time = mp.Array('d', [0])
+        self.primary_channel_data = [0] * self.primary_n_channels
+        for i in range(self.primary_n_channels):
+            self.primary_channel_data[i] = mp.Array('d', [0] * self.primary_buffer_size)
+        self.primary_time_array = mp.Array('d', [0] * self.primary_buffer_size)
+        self.primary_last_time = mp.Array('d', [0])
 
-        self.wptr = mp.Value('i', 0)
-        self.buffer_full = mp.Value('i', 0)
+        self.primary_wptr = mp.Value('i', 0)
+        self.primary_buffer_full = mp.Value('i', 0)
 
-        self.lock_primary = mp.Lock()
+        self.primary_lock = mp.Lock()
 
-    def initialize_secondary(self, default_channel, n_channels, buffer_size,
+    def initialize_secondary(self, n_channels, buffer_size,
                              channel_names, channel_descriptions):
         """ Initialize secondary data properties and allocate memory for
             storing the data.
         """
 
         # Initialize data properties
-        self.default_channel = default_channel
-        self.n_channels_secondary = n_channels
-        self.buffer_size_secondary = [buffer_size] * n_channels
-        self.channel_names_secondary = channel_names
-        self.channel_descriptions_secondary = channel_descriptions
+        self.secondary_n_channels = n_channels
+        self.secondary_buffer_size = [buffer_size] * n_channels
+        self.secondary_channel_names = channel_names
+        self.secondary_channel_descriptions = channel_descriptions
 
-        if self.n_channels_secondary > 0 and not self.channel_names_secondary:
+        if self.secondary_n_channels > 0 and not self.secondary_channel_names:
             new_names = []
-            for idx in range(self.n_channels_secondary):
+            for idx in range(self.secondary_n_channels):
                 new_names.append('ch_s_{}'.format(idx))
-            self.channel_names_secondary = new_names
+            self.secondary_channel_names = new_names
 
-        if not self.channel_descriptions_secondary:
-            self.channel_descriptions_secondary = [''] * self.n_channels_secondary
+        if not self.secondary_channel_descriptions:
+            self.secondary_channel_descriptions = [''] * self.secondary_n_channels
 
         # Preallocate secondary buffers
-        self.channel_data_secondary = [0] * self.n_channels_secondary
-        self.time_array_secondary = [0] * self.n_channels_secondary
-        self.last_time_secondary = mp.Array('d', [0] * self.n_channels_secondary)
+        self.secondary_channel_data = [0] * self.secondary_n_channels
+        self.time_array_secondary = [0] * self.secondary_n_channels
+        self.last_time_secondary = mp.Array('d', [0] * self.secondary_n_channels)
 
-        for idx, size in enumerate(self.buffer_size_secondary):
-            self.channel_data_secondary[idx] = mp.Array('d', [0] * size)
+        for idx, size in enumerate(self.secondary_buffer_size):
+            self.secondary_channel_data[idx] = mp.Array('d', [0] * size)
             self.time_array_secondary[idx] = mp.Array('d', [0] * size)
 
-        self.wptr_secondary = mp.Array('i', [0] * self.n_channels_secondary)
-        self.buffer_full_secondary = mp.Array('i', [0] * self.n_channels_secondary)
+        self.secondary_wptr = mp.Array('i', [0] * self.secondary_n_channels)
+        self.secondary_buffer_full = mp.Array('i', [0] * self.secondary_n_channels)
 
-        self.lock_secondary = []
+        self.secondary_lock = []
 
-        for i in range(self.n_channels_secondary):
-            self.lock_secondary.append(mp.Lock())
+        for i in range(self.secondary_n_channels):
+            self.secondary_lock.append(mp.Lock())
 
     def receiver(self):
         """ Receive data from an LSL stream and store it in a circular
@@ -305,7 +308,7 @@ class BaseNode(object):
             x, t = inlet.pull_sample()
             self.last_sample_received.value = time.time()
 
-            self.lock_primary.acquire()  # LOCK-ON
+            self.primary_lock.acquire()  # LOCK-ON
 
             for k in range(self.n_channels):
                 self.channel_data[k][self.wptr.value] = x[k]
@@ -318,7 +321,7 @@ class BaseNode(object):
 
             i += 1
             self.wptr.value = i % self.buffer_size
-            self.lock_primary.release()  # LOCK-OFF
+            self.primary_lock.release()  # LOCK-OFF
 
             # is the buffer full
             if (0 == self.buffer_full.value) and (i >= self.buffer_size):
@@ -340,7 +343,7 @@ class BaseNode(object):
 
         while self.run_state.value:
             if not self.message_queue.empty():
-                socket.send_string('{};{}'.format(self.nodename, self.message_queue.get()))
+                socket.send_string('{};{}'.format(self.node_name, self.message_queue.get()))
             time.sleep(0.0001)
 
     def responder(self, responder_id):
@@ -400,14 +403,14 @@ class BaseNode(object):
             else:
                 idx = range(self.wptr.value)
 
-        elif channel_name in self.channel_names_secondary:
-            ch_idx = self.channel_names_secondary.index(channel_name)
-            if self.buffer_full_secondary[ch_idx]:
-                idx = [0] * self.buffer_size_secondary[ch_idx]
-                for i in range(self.buffer_size_secondary[ch_idx]):
-                    idx[i] = (self.wptr_secondary[ch_idx] + i) % self.buffer_size_secondary[ch_idx]
+        elif channel_name in self.secondary_channel_names:
+            ch_idx = self.secondary_channel_names.index(channel_name)
+            if self.secondary_buffer_full[ch_idx]:
+                idx = [0] * self.secondary_buffer_size[ch_idx]
+                for i in range(self.secondary_buffer_size[ch_idx]):
+                    idx[i] = (self.secondary_wptr[ch_idx] + i) % self.secondary_buffer_size[ch_idx]
             else:
-                idx = range(self.wptr_secondary[ch_idx])
+                idx = range(self.secondary_wptr[ch_idx])
 
         return idx
 
@@ -420,18 +423,18 @@ class BaseNode(object):
             value: <float>  value of new sample
         """
         if use_lock:
-            self.lock_secondary[ch].acquire()
+            self.secondary_lock[ch].acquire()
 
-        self.channel_data_secondary[ch][self.wptr_secondary[ch]] = value
-        self.time_array_secondary[ch][self.wptr_secondary[ch]] = timep
-        self.wptr_secondary[ch] += 1
+        self.secondary_channel_data[ch][self.secondary_wptr[ch]] = value
+        self.time_array_secondary[ch][self.secondary_wptr[ch]] = timep
+        self.secondary_wptr[ch] += 1
 
-        if 0 == self.buffer_full_secondary[ch] and self.wptr_secondary[ch] >= self.buffer_size_secondary[ch]:
-            self.buffer_full_secondary[ch] = 1
+        if 0 == self.secondary_buffer_full[ch] and self.secondary_wptr[ch] >= self.secondary_buffer_size[ch]:
+            self.secondary_buffer_full[ch] = 1
 
-        self.wptr_secondary[ch] = self.wptr_secondary[ch] % self.buffer_size_secondary[ch]
+        self.secondary_wptr[ch] = self.secondary_wptr[ch] % self.secondary_buffer_size[ch]
         if use_lock:
-            self.lock_secondary[ch].release()
+            self.secondary_lock[ch].release()
 
     def push_chunk_secondary(self, ch, timeps, values):
         """ Push a chunk of new samples into a secondary data buffer.
@@ -442,10 +445,10 @@ class BaseNode(object):
             values: <list>  list of new values
         """
 
-        self.lock_secondary[ch].acquire()
+        self.secondary_lock[ch].acquire()
         for t, v in zip(timeps, values):
             self.push_sample_secondary(ch, t, v, use_lock=False)
-        self.lock_secondary[ch].release()
+        self.secondary_lock[ch].release()
 
     def is_valid_request(self, request):
         """ Asserts that the given request is valid.
@@ -475,7 +478,7 @@ class BaseNode(object):
 
         if 'channels' in request:
             try:
-                channels_ok = set(self.channel_names + self.channel_names_secondary).issuperset(request['channels'])
+                channels_ok = set(self.channel_names + self.secondary_channel_names).issuperset(request['channels'])
             except:
                 channels_ok = False
 
@@ -499,7 +502,7 @@ class BaseNode(object):
         for request in requests:
             if 'channels' in request:
                 channels.extend(request['channels'])
-        return list(set.intersection(set(channels), set(self.channel_names + self.channel_names_secondary)))
+        return list(set.intersection(set(channels), set(self.channel_names + self.secondary_channel_names)))
 
     def get_data_from_channel(self, channel_name):
         """ Copy and unwrap data from specified channel
@@ -514,10 +517,10 @@ class BaseNode(object):
             time_array = self.time_array[:]
             data = self.channel_data[self.channel_names.index(channel_name)][:]
 
-        elif channel_name in self.channel_names_secondary:
-            idx = self.channel_names_secondary.index(channel_name)
+        elif channel_name in self.secondary_channel_names:
+            idx = self.secondary_channel_names.index(channel_name)
             time_array = self.time_array_secondary[idx][:]
-            data = self.channel_data_secondary[idx][:]
+            data = self.secondary_channel_data[idx][:]
 
         unwrap_idx = self.unwrap_channel(channel_name)
 
@@ -529,11 +532,11 @@ class BaseNode(object):
 
     def lock_all_secondary(self):
         """ Locks all channels of the secondary buffer. """
-        [lock.acquire() for lock in self.lock_secondary]
+        [lock.acquire() for lock in self.secondary_lock]
 
     def release_all_secondary(self):
         """ Releases all channels of the secondary buffer. """
-        [lock.release() for lock in self.lock_secondary]
+        [lock.release() for lock in self.secondary_lock]
 
     def snapshot_data(self, channels):
         """ Copies specified data channels.
@@ -543,13 +546,13 @@ class BaseNode(object):
         Returns:
             snapshot <dict>: data and times for each channel
         """
-        self.lock_primary.acquire()
+        self.primary_lock.acquire()
         self.lock_all_secondary()
         snapshot = {}
         for channel in channels:
             data, time = self.get_data_from_channel(channel)
             snapshot[channel] = (data, time)
-        self.lock_primary.release()
+        self.primary_lock.release()
         self.release_all_secondary()
         return snapshot
 
@@ -714,9 +717,9 @@ class BaseNode(object):
         self.generate_metric_lists()
 
         # Create and configure beacon
-        self.beacon = mu.Beacon(name=self.nodename,
-                                type=self.nodetype,
-                                id=self.nodeid,
+        self.beacon = mu.Beacon(name=self.node_name,
+                                type=self.node_type,
+                                id=self.node_id,
                                 interval=2)
         self.beacon.ip = self.ip
         self.beacon.port = self.port_frontend
@@ -725,7 +728,7 @@ class BaseNode(object):
         self.proc_broker = mp.Process(target=mu.LRU_queue_broker,
                                       args=(self.url_frontend,
                                             self.url_backend,
-                                            self.n_workers,
+                                            self.n_responders,
                                             self.run_state))
         self.proc_broker.start()
 
@@ -740,9 +743,9 @@ class BaseNode(object):
             self.proc_receiver.start()
 
         # Start responders
-        self.proc_responder_list = [0] * self.n_workers
+        self.proc_responder_list = [0] * self.n_responders
 
-        for i in range(self.n_workers):
+        for i in range(self.n_responders):
             self.proc_responder_list[i] = mp.Process(target=self.responder,
                                                      args=(i,))
             self.proc_responder_list[i].start()
@@ -759,13 +762,13 @@ class BaseNode(object):
         self.beacon.start()
 
         time.sleep(5)
-        print("Node '%s' now online." % self.nodename)
+        print("Node '%s' now online." % self.node_name)
 
     def stop(self):
         """ Terminates the node. """
         if self.run_state.value:
 
-            print("Node '%s' shutting down ..." % self.nodename)
+            print("Node '%s' shutting down ..." % self.node_name)
 
             self.beacon.set_status('offline')
             self.run_state.value = 0
@@ -793,9 +796,9 @@ class BaseNode(object):
             self.beacon.stop()
 
         else:
-            print("Node '%s' is not running." % self.nodename)
+            print("Node '%s' is not running." % self.node_name)
 
-        print("Node '%s' is now offline." % self.nodename)
+        print("Node '%s' is now offline." % self.node_name)
 
     def show_ui(self):
         """ Show a minimal user interface. """
@@ -839,8 +842,8 @@ class BaseNode(object):
     def generate_nodeinfo(self):
         """ Stores all node information in a dict """
         self.nodeinfo = {}
-        self.nodeinfo['name'] = self.nodename
-        self.nodeinfo['desc'] = self.nodedesc
+        self.nodeinfo['name'] = self.node_name
+        self.nodeinfo['desc'] = self.node_description
         self.nodeinfo['primary_node'] = self.primary_node
         self.nodeinfo['channel_count'] = self.n_channels
         self.nodeinfo['channel_names'] = ",".join(self.channel_names)
@@ -872,6 +875,6 @@ class BaseNode(object):
         """ Returns the data list of the node as a dictionary where the name of
             the data is the key and the description is the value.
         """
-        cn = self.channel_names + self.channel_names_secondary
-        cd = self.channel_descriptions + self.channel_descriptions_secondary
+        cn = self.channel_names + self.secondary_channel_names
+        cd = self.channel_descriptions + self.secondary_channel_descriptions
         return dict(zip(cn, cd))
