@@ -185,11 +185,6 @@ class BaseNode(object):
         #    lock_secondary : lock for the secondary channel_data
         # ------------------------------
         self.run_state = mp.Value('i', 0)
-        self.lock_primary = mp.Lock()
-        self.lock_secondary = []
-
-        for i in range(self.n_channels_secondary):
-            self.lock_secondary.append(mp.Lock())
 
         # ------------------------------
         # Empty containers for functions
@@ -247,6 +242,8 @@ class BaseNode(object):
         self.wptr = mp.Value('i', 0)
         self.buffer_full = mp.Value('i', 0)
 
+        self.lock_primary = mp.Lock()
+
     def initialize_secondary(self, default_channel, n_channels, buffer_size,
                              channel_names, channel_descriptions):
         """ Initialize secondary data properties and allocate memory for
@@ -280,6 +277,11 @@ class BaseNode(object):
 
         self.wptr_secondary = mp.Array('i', [0] * self.n_channels_secondary)
         self.buffer_full_secondary = mp.Array('i', [0] * self.n_channels_secondary)
+
+        self.lock_secondary = []
+
+        for i in range(self.n_channels_secondary):
+            self.lock_secondary.append(mp.Lock())
 
     def receiver(self):
         """ Receive data from an LSL stream and store it in a circular
