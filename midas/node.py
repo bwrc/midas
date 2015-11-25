@@ -271,12 +271,12 @@ class BaseNode(object):
 
         # Preallocate secondary buffers
         self.secondary_channel_data = [0] * self.secondary_n_channels
-        self.time_array_secondary = [0] * self.secondary_n_channels
+        self.secondary_time_array = [0] * self.secondary_n_channels
         self.last_time_secondary = mp.Array('d', [0] * self.secondary_n_channels)
 
         for idx, size in enumerate(self.secondary_buffer_size):
             self.secondary_channel_data[idx] = mp.Array('d', [0] * size)
-            self.time_array_secondary[idx] = mp.Array('d', [0] * size)
+            self.secondary_time_array[idx] = mp.Array('d', [0] * size)
 
         self.secondary_wptr = mp.Array('i', [0] * self.secondary_n_channels)
         self.secondary_buffer_full = mp.Array('i', [0] * self.secondary_n_channels)
@@ -310,22 +310,22 @@ class BaseNode(object):
 
             self.primary_lock.acquire()  # LOCK-ON
 
-            for k in range(self.n_channels):
-                self.channel_data[k][self.wptr.value] = x[k]
+            for k in range(self.primary_n_channels):
+                self.primary_channel_data[k][self.primary_wptr.value] = x[k]
 
             if t is None:
-                t = self.last_time.value + self.sampling_rate
+                t = self.last_time.value + self.primary_sampling_rate
 
-            self.time_array[self.wptr.value] = t
+            self.primary_time_array[self.primary_wptr.value] = t
             self.last_time.value = t
 
             i += 1
-            self.wptr.value = i % self.buffer_size
+            self.primary_wptr.value = i % self.primary_buffer_size
             self.primary_lock.release()  # LOCK-OFF
 
             # is the buffer full
-            if (0 == self.buffer_full.value) and (i >= self.buffer_size):
-                self.buffer_full.value = 1
+            if (0 == self.primary_buffer_full.value) and (i >= self.primary_buffer_size):
+                self.primary_buffer_full.value = 1
         # Ending run, clear inlet
         inlet.close_stream()
 
@@ -395,13 +395,13 @@ class BaseNode(object):
         Returns:
             idx <list>: unwrapping vector
         """
-        if channel_name in self.channel_names:
-            if self.buffer_full.value:
-                idx = [0] * self.buffer_size
-                for i in range(self.buffer_size):
-                    idx[i] = (self.wptr.value + i) % self.buffer_size
+        if channel_name in self.primary_channel_names:
+            if self.primary_buffer_full.value:
+                idx = [0] * self.primary_buffer_size
+                for i in range(self.primary_buffer_size):
+                    idx[i] = (self.primary_wptr.value + i) % self.primary_buffer_size
             else:
-                idx = range(self.wptr.value)
+                idx = range(self.primary_wptr.value)
 
         elif channel_name in self.secondary_channel_names:
             ch_idx = self.secondary_channel_names.index(channel_name)
@@ -426,7 +426,7 @@ class BaseNode(object):
             self.secondary_lock[ch].acquire()
 
         self.secondary_channel_data[ch][self.secondary_wptr[ch]] = value
-        self.time_array_secondary[ch][self.secondary_wptr[ch]] = timep
+        self.secondary_time_array[ch][self.secondary_wptr[ch]] = timep
         self.secondary_wptr[ch] += 1
 
         if 0 == self.secondary_buffer_full[ch] and self.secondary_wptr[ch] >= self.secondary_buffer_size[ch]:
@@ -478,7 +478,7 @@ class BaseNode(object):
 
         if 'channels' in request:
             try:
-                channels_ok = set(self.channel_names + self.secondary_channel_names).issuperset(request['channels'])
+                channels_ok = set(self.primary_channel_names + self.secondary_channel_names).issuperset(request['channels'])
             except:
                 channels_ok = False
 
@@ -502,7 +502,7 @@ class BaseNode(object):
         for request in requests:
             if 'channels' in request:
                 channels.extend(request['channels'])
-        return list(set.intersection(set(channels), set(self.channel_names + self.secondary_channel_names)))
+        return list(set.intersection(set(channels), set(self.primary_channel_names + self.secondary_channel_names)))
 
     def get_data_from_channel(self, channel_name):
         """ Copy and unwrap data from specified channel
@@ -513,13 +513,13 @@ class BaseNode(object):
             data <list> array of samples
             times <list> array of timestamps
         """
-        if channel_name in self.channel_names:
-            time_array = self.time_array[:]
-            data = self.channel_data[self.channel_names.index(channel_name)][:]
+        if channel_name in self.primary_channel_names:
+            time_array = self.primary_time_array[:]
+            data = self.primary_channel_data[self.primary_channel_names.index(channel_name)][:]
 
         elif channel_name in self.secondary_channel_names:
             idx = self.secondary_channel_names.index(channel_name)
-            time_array = self.time_array_secondary[idx][:]
+            time_array = self.secondary_time_array[idx][:]
             data = self.secondary_channel_data[idx][:]
 
         unwrap_idx = self.unwrap_channel(channel_name)
@@ -845,12 +845,12 @@ class BaseNode(object):
         self.nodeinfo['name'] = self.node_name
         self.nodeinfo['desc'] = self.node_description
         self.nodeinfo['primary_node'] = self.primary_node
-        self.nodeinfo['channel_count'] = self.n_channels
-        self.nodeinfo['channel_names'] = ",".join(self.channel_names)
-        self.nodeinfo['channel_descriptions'] = ",".join(self.channel_descriptions)
-        self.nodeinfo['sampling_rate'] = self.sampling_rate
-        self.nodeinfo['buffer_size'] = self.buffer_size_s
-        self.nodeinfo['buffer_full'] = self.buffer_full.value
+        self.nodeinfo['channel_count'] = self.primary_n_channels
+        self.nodeinfo['channel_names'] = ",".join(self.primary_channel_names)
+        self.nodeinfo['channel_descriptions'] = ",".join(self.primary_channel_descriptions)
+        self.nodeinfo['sampling_rate'] = self.primary_sampling_rate
+        self.nodeinfo['buffer_size'] = self.primary_buffer_size_s
+        self.nodeinfo['buffer_full'] = self.primary_buffer_full.value
 
     def get_metric_list(self):
         """ Returns the metrics list of the node as a dictionary where the name
@@ -875,6 +875,6 @@ class BaseNode(object):
         """ Returns the data list of the node as a dictionary where the name of
             the data is the key and the description is the value.
         """
-        cn = self.channel_names + self.secondary_channel_names
-        cd = self.channel_descriptions + self.secondary_channel_descriptions
-        return dict(zip(cn, cd))
+        names = self.primary_channel_names + self.secondary_channel_names
+        descriptions = self.primary_channel_descriptions + self.secondary_channel_descriptions
+        return dict(zip(names, descriptions))
