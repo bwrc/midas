@@ -32,7 +32,7 @@ class NodeExampleB(BaseNode):
         Returns:
             c <float>: average power in frequency band f_lim1 - f_lim2
         """
-        f, P = scipy.signal.welch(x['data'][0], fs=self.sampling_rate)
+        f, P = scipy.signal.welch(x['data'][0], fs=self.primary_sampling_rate)
         c = np.mean(P[np.bitwise_and(f >= f_lim1, f <= f_lim2)])
         return c
 
