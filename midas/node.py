@@ -277,7 +277,7 @@ class BaseNode(object):
         # Preallocate secondary buffers
         self.secondary_channel_data = [0] * self.secondary_n_channels
         self.secondary_time_array = [0] * self.secondary_n_channels
-        self.last_time_secondary = mp.Array('d', [0] * self.secondary_n_channels)
+        self.secondary_last_time = mp.Array('d', [0] * self.secondary_n_channels)
 
         for idx, size in enumerate(self.secondary_buffer_size):
             self.secondary_channel_data[idx] = mp.Array('d', [0] * size)
@@ -308,7 +308,7 @@ class BaseNode(object):
         print("\tDone")
 
         i = 0
-        self.last_time.value = 0  # init the last_time value
+        self.primary_last_time.value = 0  # init the last_time value
         while self.run_state.value:
             x, t = inlet.pull_sample()
             self.primary_last_sample_received.value = time.time()
@@ -319,10 +319,10 @@ class BaseNode(object):
                 self.primary_channel_data[k][self.primary_wptr.value] = x[k]
 
             if t is None:
-                t = self.last_time.value + self.primary_sampling_rate
+                t = self.primary_last_time.value + self.primary_sampling_rate
 
             self.primary_time_array[self.primary_wptr.value] = t
-            self.last_time.value = t
+            self.primary_last_time.value = t
 
             i += 1
             self.primary_wptr.value = i % self.primary_buffer_size
