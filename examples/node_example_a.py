@@ -83,7 +83,7 @@ class NodeExampleA(BaseNode):
 # to the metric_functions-list in node __init__. These "outside" functions have,
 # however, no access to class attributes. Note that it is also possible to
 # include metric functions from a completely separate module.
-def metric_b(x, arg1, arg2):
+def metric_b(x, arg1=0, arg2=0):
     """ Returns 'metric b'. Takes two additional arguments."""
     b1 = np.max(x['data'][0]) - arg1
     b2 = np.min(x['data'][0]) - arg2
