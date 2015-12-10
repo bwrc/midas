@@ -39,8 +39,8 @@ class Beacon(object):
         """ Create the beacon and set some properties, but do not start it. """
 
         self.name = name
-        self.type = type
-        self.id = id
+        self.type = node_type
+        self.id = node_id
         self.ip = ip
         self.port = port
         self.protocol = protocol
