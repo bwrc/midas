@@ -53,7 +53,7 @@ class NodeExampleA(BaseNode):
         """ Automatically calculates values for two secondary channels. """
         # Process loops while the node is running. Variable run_state.value is
         # the poison-pill of the node.
-        channel_name = self.channel_names[0]
+        channel_name = self.primary_channel_names[0]
         while self.run_state.value:
             # Snapshot and unpack 10 seconds of 'primary' data from channel 0
             snapshot = self.snapshot_data([channel_name])
