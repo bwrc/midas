@@ -19,7 +19,7 @@ class NodeExampleA(BaseNode):
         # Specify all metric-functions by adding them to the
         # metric_functions-list. This makes them visible to dispatcher.
         self.metric_functions.append(self.metric_a)
-        self.metric_functions.append(self.test)
+        self.metric_functions.append(self.echo)
         self.metric_functions.append(metric_b)
         self.process_list.append(self.process_x)
 
@@ -30,21 +30,20 @@ class NodeExampleA(BaseNode):
         a = np.mean(x['data'][0])
         return a
 
-    def test(self, x, p1=0, p2=0):
-        """ Testing function that echoes inputs it gets"""
-        print('>>>>>>>>>>>')
-        print("\tNumber of channels=%d" % len(x['data']))
+    def echo(self, x, arg1=None, arg2=None):
+        """ Testing function that echoes all the inputs it gets to the terminal"""
+        print('ECHO-BEGIN >>>')
+        print('\tNumber of channels={}'.format(len(x['data'])))
         for idx, ch in enumerate(x['data']):
-            print("\t\tCh%d: %d samples" % (idx, len(ch)))
-        print("\tArguments:")
-        print("\t\targ1=%s" % p1)
-        print("\t\targ2=%s" % p2)
-        print("\tData:")
+            print('\t\tch-{}: contains {} samples'.format(idx, len(ch)))
+        print('\tArguments:\n\t\targ1={}\n\t\targ2={}'.format(arg1, arg2))
+        print('\tData:')
         for d in x['data']:
-            print("\t\t" + str(d))
-        print("\tTime:")
+            print("\t\t{}".format(d))
+        print('\tTime:')
         for t in x['time']:
-            print("\t\t" + str(t))
+            print('\t\t{}'.format(t))
+        print('<<< ECHO-END')
         return 1
 
     # Processes are class methods that loop while the node is running. A process
