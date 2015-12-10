@@ -551,14 +551,23 @@ class BaseNode(object):
         Returns:
             snapshot <dict>: data and times for each channel
         """
-        self.primary_lock.acquire()
-        self.lock_all_secondary()
+        if self.primary_node:
+            self.primary_lock.acquire()
+
+        if self.secondary_node:
+            self.lock_all_secondary()
+
         snapshot = {}
         for channel in channels:
             data, time = self.get_data_from_channel(channel)
             snapshot[channel] = (data, time)
-        self.primary_lock.release()
-        self.release_all_secondary()
+
+        if self.primary_node:
+            self.primary_lock.release()
+
+        if self.secondary_node:
+            self.release_all_secondary()
+
         return snapshot
 
     def unpack_snapshot(self, snapshot, channels, time_window):
