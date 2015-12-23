@@ -32,6 +32,7 @@ The two nodes receive data from the signal source and can perform various operat
 	python node_example_a.py config.ini node_a
 
 and
+
 	python node_example_b.py config.ini node_b
 
 in separate terminals. 
