@@ -1,4 +1,4 @@
-.. image:: https://github.com/bwrc/midas/blob/newreadme/midas.png
+.. image:: https://raw.githubusercontent.com/bwrc/midas/newreadme/midas.png
     :alt: MIDAS - Modular Integrated Distributed Analysis System
     :width: 426
     :height: 118
