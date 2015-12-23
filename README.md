@@ -1,8 +1,5 @@
-.. image:: https://raw.githubusercontent.com/bwrc/midas/newreadme/midas.png
-    :alt: MIDAS - Modular Integrated Distributed Analysis System
-    :width: 426
-    :height: 118
-    :align: center
+![alt text][logo]
+[logo]: https://raw.githubusercontent.com/bwrc/midas/newreadme/midas.png "M I D A S"
 
 The MIDAS (Modular Integrated Distributed Analysis System) is a system
 for online analysis of streaming signals and allows easy integration
