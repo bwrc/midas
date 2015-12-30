@@ -20,6 +20,9 @@ MIDAS requires Python 3. Python 3 is your default, use the pip command and other
 
 Quick start guide
 -----------------
+![alt text][usage]
+[usage]: https://raw.githubusercontent.com/bwrc/midas/newreadme/midas-usage.gif "Usage example"
+
 You can run the examples found in the [examples](https://github.com/bwrc/midas/tree/master/examples) by following these steps. The example consist of one signal source feeding data to two two processing nodes.
 Please note that all commands should be run inside the examples directory.
 
