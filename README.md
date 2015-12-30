@@ -64,8 +64,10 @@ https://127.0.0.1:8080/status/metrics
 
 License information
 -------------------
-Please refer to the file "LICENSE" for license information for this
-software, and for terms and conditions for usage, and a disclaimer of
+MIDAS is released under the MIT license, but depends on some components 
+released under different licenses. Please refer to the file "LICENSE" for 
+license information for this software, and for terms and conditions for
+usage, and a disclaimer of
 all warranties.
 
 MIDAS also depends on other software projects with different
