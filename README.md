@@ -12,6 +12,9 @@ extensibility with custom nodes. Possible use cases include
 implementation of real-time signal fusion and machine learning. MIDAS is 
 written in Python 3. 
 
+![alt text][flowchart]
+[flowchart]: https://raw.githubusercontent.com/bwrc/midas/newreadme/flowchart.png "An example MIDAS network"
+
 For more information (background, installation, usage, ...) refer to
 the [MIDAS wiki](https://github.com/bwrc/midas/wiki).
 
