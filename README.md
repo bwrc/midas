@@ -3,7 +3,14 @@
 
 The MIDAS (Modular Integrated Distributed Analysis System) is a system
 for online analysis of streaming signals and allows easy integration
-of machine learning frameworks and processing modules.
+of machine learning frameworks and processing modules. MIDAS aims to 
+simplify the process of setting up of ad hoc networks for online 
+processing and analysis of multiple signals. This is achieved through a 
+distributed structure consisting of nodes and dispatchers. Core features 
+of MIDAS include automatic discovery of network components and easy 
+extensibility with custom nodes. Possible use cases include 
+implementation of real-time signal fusion and machine learning. MIDAS is 
+written in Python 3. 
 
 For more information (background, installation, usage, ...) refer to
 the [MIDAS wiki](https://github.com/bwrc/midas/wiki).
