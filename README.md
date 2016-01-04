@@ -1,5 +1,5 @@
 ![alt text][logo]
-[logo]: https://raw.githubusercontent.com/bwrc/midas/newreadme/midas.png "M I D A S"
+[logo]: https://raw.githubusercontent.com/bwrc/midas/master/midas.png "M I D A S"
 
 The MIDAS (Modular Integrated Distributed Analysis System) is a system
 for online analysis of streaming signals and allows easy integration
@@ -13,7 +13,7 @@ implementation of real-time signal fusion and machine learning. MIDAS is
 written in Python 3. 
 
 ![alt text][flowchart]
-[flowchart]: https://raw.githubusercontent.com/bwrc/midas/newreadme/flowchart.png "An example MIDAS network"
+[flowchart]: https://raw.githubusercontent.com/bwrc/midas/master/flowchart.png "An example MIDAS network"
 
 For more information (background, installation, usage, ...) refer to
 the [MIDAS wiki](https://github.com/bwrc/midas/wiki).
@@ -31,7 +31,7 @@ MIDAS requires Python 3. Python 3 is your default, use the pip command and other
 Quick start guide
 -----------------
 ![alt text][usage]
-[usage]: https://raw.githubusercontent.com/bwrc/midas/newreadme/midas-usage.gif "Usage example"
+[usage]: https://raw.githubusercontent.com/bwrc/midas/master/midas-usage.gif "Usage example"
 
 You can run the examples found in the [examples](https://github.com/bwrc/midas/tree/master/examples) by following these steps. The example consist of one signal source feeding data to two two processing nodes.
 Please note that all commands should be run inside the examples directory.
