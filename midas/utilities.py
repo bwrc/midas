@@ -243,10 +243,21 @@ def get_ip():
     return(ip)
 
 
+def get_config_options(otype):
+    """ Return list of valid configuration options for nodes and dispatcher."""
+    if otype is 'node':
+        return ['node_name', 'node_type', 'node_id', 'node_description', 'primary_node', 'ip', 'port_frontend', 'port_backend', 'port_publisher', 'n_responders', 'lsl_stream_name', 'primary_n_channels', 'primary_channel_names', 'primary_channel_descriptions', 'primary_sampling_rate', 'primary_buffer_size_s', 'run_publisher', 'secondary_node', 'secondary_n_channels', 'secondary_buffer_size', 'secondary_channel_names', 'secondary_channel_descriptions', 'default_channel']
+    elif otype is 'dispatcher':
+        return ['node_list', 'port', 'ip', 'n_threads', 'run_pubsub_proxy', 'proxy_port_in', 'proxy_port_out']
+    else:
+        return None
+
+    
 def midas_parse_config(nodeclass, *args):
     """ Parse configuration for a node, and if valid return a node"""
     # Read configuration from an INI file given as a command-line argument
     args = args[0]
+
     if len(args) < 2:
         print('Error! No INI file provided.')
         return None
@@ -272,6 +283,27 @@ def midas_parse_config(nodeclass, *args):
         else:
             print('Error! Section not found in INI file.')
             return None
+
+    # Determine the object type (node or dispatcher)
+    clist = [i.__name__ for i in nodeclass.__mro__]
+    otype = None
+
+    if 'BaseNode' in clist:
+        otype = 'node'
+    if 'Dispatcher' in clist:
+        otype = 'dispatcher'
+    if otype is None:
+        print('Error! Unrecognised MIDAS object type.')
+        return None
+    
+    # Check supported options for the given object type
+    unrecognised_options = set(list(tmp.keys())) - set(get_config_options(otype))
+    if (len(unrecognised_options) > 0):
+        print('Error! Unrecognised configuration options provided. Please fix!')
+        print('The following options are not recognised:')
+        for i in unrecognised_options:
+            print('\t' + i)
+        return None
 
     # Create the node
     return nodeclass(tmp)
